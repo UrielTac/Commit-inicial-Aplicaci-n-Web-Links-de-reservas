@@ -1,9 +1,15 @@
 "use client"
 
 import { useState } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
-import { IconPlus, IconSettings, IconUser, IconTrash, IconEdit, IconFilter, IconDots, IconChevronLeft, IconChevronRight, IconPackage } from "@tabler/icons-react"
+import { IconPlus, IconTrash, IconEdit, IconDots, IconFilter } from "@tabler/icons-react"
 import { NewItemModal } from "./NewItemModal"
+import { itemService } from "@/services/itemService"
+import { toast } from "sonner"
+import type { Item } from "@/types/items"
+import { cn } from "@/lib/utils"
+import { useBranchContext } from '@/contexts/BranchContext'
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
@@ -16,166 +22,129 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { type Item } from '@/types/items'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select-3"
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
-
-// Datos de ejemplo
-const initialItems: Item[] = [
-  {
-    id: '1',
-    name: 'Raqueta Pro Carbon',
-    type: 'equipment',
-    pricing: { 60: 15, 120: 25 },
-    defaultDuration: 60,
-    stock: 10,
-    requiresDeposit: true,
-    depositAmount: 50,
-    isActive: true
-  },
-  {
-    id: '2',
-    name: 'Pelotas Premium',
-    type: 'consumable',
-    pricing: { 60: 5 },
-    defaultDuration: 60,
-    stock: 100,
-    requiresDeposit: false,
-    isActive: true
-  },
-  {
-    id: '3',
-    name: 'Máquina Lanzapelotas',
-    type: 'equipment',
-    pricing: { 30: 20, 60: 35, 90: 45 },
-    defaultDuration: 60,
-    stock: 2,
-    requiresDeposit: true,
-    depositAmount: 200,
-    isActive: true
-  }
-]
 
 export function ItemsTable() {
-  const [items, setItems] = useState<Item[]>(initialItems)
+  // 1. Hooks y estado
+  const { currentBranch } = useBranchContext()
+  const queryClient = useQueryClient()
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false)
-  const [selectedRows, setSelectedRows] = useState<string[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
+  const [editingItem, setEditingItem] = useState<Item | null>(null)
   const [filters, setFilters] = useState({
     search: "",
-    type: "",
-  })
-  const [editingItem, setEditingItem] = useState<Item | null>(null)
-  const itemsPerPage = 10
-  const [confirmDelete, setConfirmDelete] = useState<{
-    isOpen: boolean
-    itemId: string | null
-    itemName: string
-    position: { x: number; y: number }
-  }>({
-    isOpen: false,
-    itemId: null,
-    itemName: '',
-    position: { x: 0, y: 0 }
+    type: "all",
   })
 
-  const handleSaveItem = (itemData: Omit<Item, 'id'>) => {
-    if (editingItem) {
-      // Actualizar item existente
-      setItems(prev => prev.map(item => 
-        item.id === editingItem.id 
-          ? { ...itemData, id: editingItem.id }
-          : item
-      ))
-      setEditingItem(null)
-    } else {
-      // Crear nuevo item y añadirlo al principio de la lista
-      const newItem: Item = {
-        ...itemData,
-        id: `item-${Date.now()}`,
+  // 2. Query para obtener items
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['items', currentBranch?.id],
+    queryFn: () => {
+      if (!currentBranch?.id) throw new Error('No hay una sede seleccionada')
+      return itemService.getItemsByBranch(currentBranch.id)
+    },
+    enabled: !!currentBranch?.id,
+    staleTime: 1000 * 60 * 5 // 5 minutos
+  })
+
+  // 3. Mutations
+  const mutation = useMutation({
+    mutationFn: async (itemData: Omit<Item, 'id'> & { id?: string }) => {
+      if (!currentBranch?.id) throw new Error('No hay una sede seleccionada')
+      
+      if (itemData.id) {
+        // Si hay ID, es una actualización
+        return itemService.updateItem(itemData.id, itemData, currentBranch.id)
+      } else {
+        // Si no hay ID, es una creación
+        return itemService.createItem(itemData, currentBranch.id)
       }
-      setItems(prev => [newItem, ...prev])
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items', currentBranch?.id] })
+      setIsNewItemModalOpen(false)
+      setEditingItem(null)
+      toast.success(
+        editingItem ? 'Artículo actualizado correctamente' : 'Artículo creado correctamente'
+      )
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al guardar el artículo')
     }
-    setIsNewItemModalOpen(false)
+  })
+
+  // Mutation para eliminar
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!currentBranch?.id) throw new Error('No hay una sede seleccionada')
+      return itemService.deleteItem(id, currentBranch.id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items', currentBranch?.id] })
+      toast.success('Artículo eliminado correctamente')
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al eliminar el artículo')
+    }
+  })
+
+  // 4. Handlers
+  const handleNewItem = async (itemData: Omit<Item, 'id'>) => {
+    try {
+      await mutation.mutateAsync({
+        ...itemData,
+        id: editingItem?.id // Incluir el ID si estamos editando
+      })
+    } catch (error) {
+      console.error('Error al guardar el artículo:', error)
+    }
   }
 
-  const handleDeleteItem = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id))
+  const handleDeleteItem = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id)
+    } catch (error) {
+      console.error('Error al eliminar el artículo:', error)
+    }
   }
 
-  const handleEditItem = (item: Item) => {
-    setEditingItem(item)
-    setIsNewItemModalOpen(true)
-  }
-
-  // Filtrar items
+  // 5. Filtrado de items
   const getFilteredItems = () => {
     return items.filter(item => {
-      const matchesSearch = filters.search === "" || 
-        item.name.toLowerCase().includes(filters.search.toLowerCase())
-      
-      const matchesType = filters.type === "" || item.type === filters.type
-      
+      const matchesSearch = item.name.toLowerCase().includes(filters.search.toLowerCase())
+      const matchesType = filters.type === "all" || item.type === filters.type
       return matchesSearch && matchesType
     })
   }
 
-  // Obtener items de la página actual
-  const getCurrentPageItems = () => {
-    const filteredItems = getFilteredItems()
-    const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    return filteredItems.slice(startIndex, endIndex)
+  // 6. Renderizado condicional
+  if (!currentBranch) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 space-y-4">
+        <p className="text-gray-500">Selecciona una sede para ver sus artículos</p>
+        <Button 
+          variant="outline"
+          onClick={() => document.getElementById('branch-selector')?.click()}
+        >
+          Seleccionar Sede
+        </Button>
+      </div>
+    )
   }
 
-  const totalPages = Math.ceil(getFilteredItems().length / itemsPerPage)
-
-  // Función para obtener el estilo según el tipo de artículo
-  const getTypeStyle = (type: string): string => {
-    return 'bg-[#F3F4F6] text-[#6B6468] px-3 py-1 rounded-full text-sm font-medium'
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
-  // Función para formatear el precio
-  const formatPrice = (pricing: { [key: number]: number }): string => {
-    const prices = Object.entries(pricing)
-    if (prices.length === 0) return 'No disponible'
-    const [duration, price] = prices[0]
-    return `${price}€/${duration}min`
-  }
-
-  // Función para manejar el clic en una fila
-  const handleRowClick = (item: Item) => {
-    setEditingItem(item)
-    setIsNewItemModalOpen(true)
-  }
-
-  const handleDeleteClick = (e: React.MouseEvent, item: Item) => {
-    e.stopPropagation()
-    const rect = e.currentTarget.getBoundingClientRect()
-    setConfirmDelete({
-      isOpen: true,
-      itemId: item.id,
-      itemName: item.name,
-      position: {
-        x: rect.left - 320, // ancho del popover
-        y: rect.top
-      }
-    })
-  }
-
-  const handleConfirmDelete = () => {
-    if (confirmDelete.itemId) {
-      handleDeleteItem(confirmDelete.itemId)
-    }
-  }
-
+  // 7. Renderizado principal
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-xl font-medium">
-            Gestión de Artículos
-          </h2>
+          <h3 className="text-xl font-medium">Lista de Artículos</h3>
         </div>
 
         <div className="flex items-center gap-2">
@@ -216,7 +185,7 @@ export function ItemsTable() {
                       <SelectValue placeholder="Todos los tipos" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos los tipos</SelectItem>
+                      <SelectItem value="all">Todos los tipos</SelectItem>
                       <SelectItem value="equipment">Equipamiento</SelectItem>
                       <SelectItem value="accessory">Accesorio</SelectItem>
                       <SelectItem value="consumable">Consumible</SelectItem>
@@ -226,7 +195,7 @@ export function ItemsTable() {
                 <div className="flex justify-end pt-4 border-t">
                   <Button
                     variant="ghost"
-                    onClick={() => setFilters({ search: "", type: "" })}
+                    onClick={() => setFilters({ search: "", type: "all" })}
                   >
                     Limpiar filtros
                   </Button>
@@ -235,13 +204,9 @@ export function ItemsTable() {
             </PopoverContent>
           </Popover>
 
-          {/* Botón de nuevo artículo - Actualizado para coincidir con BookingsTable */}
           <Button 
-            onClick={() => {
-              setEditingItem(null)
-              setIsNewItemModalOpen(true)
-            }}
-            className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 flex items-center gap-2 text-sm shadow-sm transition-all duration-200"
+            onClick={() => setIsNewItemModalOpen(true)}
+            className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 flex items-center gap-2 text-sm"
           >
             <IconPlus className="h-5 w-5" />
             <span>Nuevo Artículo</span>
@@ -255,109 +220,75 @@ export function ItemsTable() {
           <thead>
             <tr>
               <th className="w-1/3 px-6 py-3 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Artículo
+                Nombre
               </th>
-              <th className="w-24 px-6 py-3 border-b border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th className="w-1/4 px-6 py-3 border-b border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Tipo
+              </th>
+              <th className="w-1/6 px-6 py-3 border-b border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Stock
               </th>
-              <th className="w-32 px-6 py-3 border-b border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Precio Base
+              <th className="w-1/6 px-6 py-3 border-b border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Depósito
               </th>
-              <th className="w-32 px-6 py-3 border-b border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Garantía
-              </th>
-              <th className="w-20 px-4 py-3 border-b border-gray-200"></th>
+              <th className="w-[68px] px-4 py-3 border-b border-gray-200"></th>
             </tr>
           </thead>
           <tbody>
-            {getCurrentPageItems().map((item) => (
+            {getFilteredItems().map((item) => (
               <tr 
-                key={item.id} 
+                key={item.id}
                 className="hover:bg-gray-50 cursor-pointer"
-                onClick={() => handleRowClick(item)}
               >
                 <td className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <IconPackage className="h-5 w-5 text-gray-500" />
-                    </div>
-                    <span className="ml-4 text-sm truncate">{item.name}</span>
-                  </div>
+                  <span className="text-sm font-medium">{item.name}</span>
+                </td>
+                <td className="px-6 py-4 border-b border-gray-200 text-center">
+                  <span className="text-sm text-gray-500">
+                    {item.type === 'equipment' && 'Equipamiento'}
+                    {item.type === 'accessory' && 'Accesorio'}
+                    {item.type === 'consumable' && 'Consumible'}
+                  </span>
                 </td>
                 <td className="px-6 py-4 border-b border-gray-200 text-center">
                   <span className="text-sm text-gray-500">{item.stock}</span>
                 </td>
                 <td className="px-6 py-4 border-b border-gray-200 text-center">
-                  <span className="text-sm text-gray-500">{formatPrice(item.pricing)}</span>
-                </td>
-                <td className="px-6 py-4 border-b border-gray-200 text-center">
                   <span className="text-sm text-gray-500">
-                    {item.requiresDeposit ? `${item.depositAmount}€` : '-'}
+                    {item.requiresDeposit ? `${item.depositAmount}€` : 'No'}
                   </span>
                 </td>
-                <td className="px-4 py-4 border-b border-gray-200 text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="focus:outline-none">
-                      <div 
-                        className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-                        onClick={(e) => e.stopPropagation()} // Evitar que el clic en los tres puntos abra el modal
-                      >
-                        <IconDots className="h-4 w-4 text-gray-500" />
-                      </div>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[160px]">
-                      <DropdownMenuItem 
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleEditItem(item)
-                        }}
-                      >
-                        <IconEdit className="h-4 w-4 mr-2" />
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={(e) => handleDeleteClick(e, item)}
-                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                      >
-                        <IconTrash className="h-4 w-4 mr-2" />
-                        Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                <td className="px-4 py-4 border-b border-gray-200">
+                  <div className="flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <div className="p-2 hover:bg-gray-100 rounded-md transition-colors cursor-pointer">
+                          <IconDots className="h-4 w-4 text-gray-500" />
+                        </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-[160px]">
+                        <DropdownMenuItem onClick={() => {
+                          setEditingItem(item)
+                          setIsNewItemModalOpen(true)
+                        }}>
+                          <IconEdit className="h-4 w-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                        >
+                          <IconTrash className="h-4 w-4 mr-2" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
-
-      {/* Paginación */}
-      <div className="flex items-center justify-between px-2 py-4">
-        <div className="flex-1 text-sm text-gray-500">
-          {getFilteredItems().length === 0 ? (
-            "No se encontraron artículos"
-          ) : (
-            `${((currentPage - 1) * itemsPerPage) + 1} - ${Math.min(currentPage * itemsPerPage, getFilteredItems().length)} de ${getFilteredItems().length} artículos`
-          )}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            <IconChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-          >
-            <IconChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
       </div>
 
       {/* Modal */}
@@ -367,18 +298,10 @@ export function ItemsTable() {
           setIsNewItemModalOpen(false)
           setEditingItem(null)
         }}
-        onSave={handleSaveItem}
-        editingItem={editingItem || undefined}
+        onSave={handleNewItem}
+        onDelete={handleDeleteItem}
+        editingItem={editingItem}
         mode={editingItem ? 'edit' : 'create'}
-      />
-
-      <ConfirmationDialog
-        isOpen={confirmDelete.isOpen}
-        onClose={() => setConfirmDelete(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={handleConfirmDelete}
-        title="Eliminar artículo"
-        description={`¿Estás seguro de que deseas eliminar "${confirmDelete.itemName}"? Esta acción no se puede deshacer.`}
-        position={confirmDelete.position}
       />
     </div>
   )

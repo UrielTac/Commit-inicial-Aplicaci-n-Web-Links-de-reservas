@@ -14,6 +14,11 @@ import {
 import { IconTrash, IconChevronDown } from "@tabler/icons-react"
 import { CourtPricingConfig } from './CourtPricingConfig'
 import { type Court, type SurfaceType, type DurationOption, type CourtPricing } from '@/types/court'
+import { SingleSelect } from "@/components/ui/single-select"
+import { cn } from "@/lib/utils"
+import { CategoryMultiSelect } from "@/components/ui/category-multi-select"
+import { DurationPricing } from "./DurationPricing"
+import { CustomPricing } from "./CustomPricing"
 
 interface NewCourtModalProps {
   isOpen: boolean
@@ -41,6 +46,60 @@ const defaultPricing: CourtPricing = {
 
 const durationOptions: DurationOption[] = [30, 45, 60, 90, 120];
 
+const sportOptions = [
+  { id: 'padel', name: 'Pádel' },
+  { id: 'tennis', name: 'Tenis' },
+  { id: 'badminton', name: 'Bádminton' },
+  { id: 'pickleball', name: 'Pickleball' },
+  { id: 'squash', name: 'Squash' },
+] as const
+
+const courtTypeOptions = [
+  { id: 'indoor', name: 'Interior' },
+  { id: 'outdoor', name: 'Exterior' },
+  { id: 'covered', name: 'Cubierta' },
+] as const
+
+const courtFeatures = [
+  {
+    id: 'walls',
+    name: 'Tipo de Paredes',
+    options: [
+      { id: 'wall-concrete', name: 'Muro de Hormigón' },
+      { id: 'wall-glass', name: 'Cristal Estándar' },
+      { id: 'wall-panoramic', name: 'Cristal Panorámico' },
+    ]
+  },
+  {
+    id: 'floor',
+    name: 'Tipo de Suelo',
+    options: [
+      { id: 'floor-synthetic', name: 'Césped Sintético' },
+      { id: 'floor-clay', name: 'Tierra Batida' },
+      { id: 'floor-concrete', name: 'Hormigón Pulido' },
+      { id: 'floor-rubber', name: 'Goma Profesional' },
+    ]
+  }
+] as const
+
+// Añadimos un tipo para los pasos
+type Step = 'court' | 'pricing';
+
+const initialFormData = {
+  name: '',
+  surface: 'crystal',
+  isIndoor: false,
+  hasLighting: false,
+  isActive: true,
+  availableDurations: [60],
+  pricing: defaultPricing,
+  sport: 'padel',
+  courtType: 'indoor',
+  features: [],
+  durationPricing: {},
+  customPricing: {},
+} as const
+
 export function NewCourtModal({ 
   isOpen, 
   onClose, 
@@ -49,24 +108,22 @@ export function NewCourtModal({
   editingCourt,
   mode = 'create' 
 }: NewCourtModalProps) {
-  const [formData, setFormData] = useState<Omit<Court, 'id'>>({
-    name: '',
-    surface: 'crystal',
-    isIndoor: false,
-    hasLighting: false,
-    isActive: true,
-    availableDurations: [60],
-    pricing: defaultPricing,
-  })
+  const [formData, setFormData] = useState<Omit<Court, 'id'>>(initialFormData)
+  const [currentStep, setCurrentStep] = useState<Step>('court')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [openSection, setOpenSection] = useState<string>("court")
+  const [newDuration, setNewDuration] = useState<number | null>(null)
 
   useEffect(() => {
-    if (editingCourt && mode === 'edit') {
-      const { id, ...courtData } = editingCourt
-      setFormData(courtData)
+    if (isOpen) {
+      if (editingCourt && mode === 'edit') {
+        const { id, ...courtData } = editingCourt
+        setFormData(courtData)
+      } else if (mode === 'create') {
+        setFormData(initialFormData)
+      }
+      setCurrentStep('court')
     }
-  }, [editingCourt, mode])
+  }, [isOpen, editingCourt, mode])
 
   useEffect(() => {
     if (!isOpen) {
@@ -74,10 +131,24 @@ export function NewCourtModal({
     }
   }, [isOpen])
 
-  const handleSave = () => {
-    if (!formData.name.trim()) {
-      return
+  const isFirstStepValid = () => {
+    return formData.name.trim() !== '' && formData.availableDurations.length > 0
+  }
+
+  const handleNext = () => {
+    if (currentStep === 'court' && isFirstStepValid()) {
+      setCurrentStep('pricing')
     }
+  }
+
+  const handleBack = () => {
+    if (currentStep === 'pricing') {
+      setCurrentStep('court')
+    }
+  }
+
+  const handleSave = () => {
+    if (!isFirstStepValid()) return
     onSave(formData)
     onClose()
   }
@@ -99,8 +170,8 @@ export function NewCourtModal({
     }))
   }
 
-  const toggleSection = (section: string) => {
-    setOpenSection(prev => prev === section ? "" : section)
+  const handleClose = () => {
+    onClose()
   }
 
   return (
@@ -111,7 +182,7 @@ export function NewCourtModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={handleClose}
             className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-40"
             transition={{ 
               duration: 0.3,
@@ -149,23 +220,25 @@ export function NewCourtModal({
                 }}
                 className="p-6 border-b"
               >
-                <motion.h2 
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.15, duration: 0.3 }}
-                  className="text-xl font-semibold"
-                >
-                  {mode === 'create' ? 'Agregar Nueva Cancha' : 'Editar Cancha'}
-                </motion.h2>
+                <div className="flex items-center justify-between">
+                  <motion.h2 
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.15, duration: 0.3 }}
+                    className="text-xl font-semibold"
+                  >
+                    {mode === 'create' ? 'Agregar Nueva Pista' : 'Editar Pista'}
+                  </motion.h2>
+                </div>
                 <motion.p 
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.2, duration: 0.3 }}
                   className="text-sm text-gray-500 mt-1"
                 >
-                  {mode === 'create' 
-                    ? 'Complete los datos de la nueva cancha'
-                    : 'Modifique los datos de la cancha'}
+                  {currentStep === 'court' 
+                    ? 'Configure los datos básicos de la pista'
+                    : 'Configure los precios de la pista'}
                 </motion.p>
               </motion.div>
 
@@ -179,123 +252,239 @@ export function NewCourtModal({
                 }}
                 className="flex-1 overflow-y-auto"
               >
-                <div className="p-6 space-y-1">
-                  <AccordionItem
-                    title="Configuración de Cancha"
-                    isOpen={openSection === "court"}
-                    onToggle={() => toggleSection("court")}
-                  >
-                    <div className="space-y-6 pt-2">
+                <AnimatePresence mode="wait">
+                  {currentStep === 'court' ? (
+                    <motion.div
+                      key="court-step"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className="p-6 space-y-6"
+                    >
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Nombre de la cancha</label>
+                        <label className="text-sm font-medium text-gray-700">
+                          Nombre de la pista
+                        </label>
                         <input
                           type="text"
-                          placeholder="Ej: Cancha Principal"
+                          placeholder="Ej: Pista Principal"
                           value={formData.name}
                           onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full pb-2 border-b border-gray-300 focus:border-black outline-none transition-colors bg-transparent"
+                          className={cn(
+                            "w-full px-3 py-2 rounded-lg",
+                            "border border-gray-200 bg-white",
+                            "focus:outline-none focus:border-gray-300",
+                            "transition-colors duration-200",
+                            "placeholder:text-gray-400",
+                            "text-sm"
+                          )}
                         />
                       </div>
 
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">
+                            Deporte
+                          </label>
+                          <SingleSelect
+                            value={formData.sport}
+                            onChange={(value) => setFormData(prev => ({ ...prev, sport: value }))}
+                            options={sportOptions}
+                            placeholder="Seleccionar deporte"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">
+                            Tipo de Pista
+                          </label>
+                          <SingleSelect
+                            value={formData.courtType}
+                            onChange={(value) => setFormData(prev => ({ ...prev, courtType: value }))}
+                            options={courtTypeOptions}
+                            placeholder="Seleccionar tipo"
+                          />
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Tipo de Superficie</label>
-                        <Select
-                          value={formData.surface}
-                          onValueChange={handleSurfaceChange}
-                        >
-                          <SelectTrigger>
-                            <SelectValue>
-                              {surfaceOptions.find(opt => opt.value === formData.surface)?.label}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {surfaceOptions.map((option) => (
-                              <SelectItem 
-                                key={option.value} 
-                                value={option.value}
+                        <label className="text-sm font-medium">
+                          Características de la Pista
+                        </label>
+                        <CategoryMultiSelect
+                          value={formData.features}
+                          onChange={(features) => setFormData(prev => ({ ...prev, features }))}
+                          categories={courtFeatures}
+                          placeholder="Seleccionar características"
+                        />
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-medium">Duraciones disponibles</h3>
+                            {formData.availableDurations.length > 0 && (
+                              <button
+                                onClick={() => setFormData(prev => ({ ...prev, availableDurations: [] }))}
+                                className={cn(
+                                  "text-xs text-gray-400",
+                                  "hover:text-gray-600",
+                                  "transition-colors duration-200",
+                                  "flex items-center gap-1"
+                                )}
                               >
-                                {option.label}
-                              </SelectItem>
+                                <span>Limpiar</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Duraciones predefinidas */}
+                          <div className="flex flex-wrap gap-2">
+                            {durationOptions.map((duration) => (
+                              <button
+                                key={duration}
+                                onClick={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    availableDurations: prev.availableDurations.includes(duration)
+                                      ? prev.availableDurations.filter(d => d !== duration)
+                                      : [...prev.availableDurations, duration].sort((a, b) => a - b)
+                                  }));
+                                }}
+                                className={cn(
+                                  "h-9 px-4 rounded-md text-sm transition-all duration-200",
+                                  "border hover:border-gray-400",
+                                  formData.availableDurations.includes(duration)
+                                    ? "bg-gray-900 text-white border-transparent hover:bg-gray-800"
+                                    : "bg-white text-gray-700 border-gray-200"
+                                )}
+                              >
+                                {duration} min
+                              </button>
                             ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                          </div>
 
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-medium">Atributos</h3>
-
-                        <div className="flex items-center justify-between">
+                          {/* Duración personalizada */}
                           <div className="space-y-1">
-                            <label className="text-sm font-medium">Cancha Techada</label>
-                            <p className="text-sm text-gray-500">
-                              La cancha está cubierta o bajo techo
+                            <div className="relative">
+                              <input
+                                type="number"
+                                placeholder="Añadir duración personalizada"
+                                value={newDuration || ''}
+                                onChange={(e) => setNewDuration(parseInt(e.target.value) || null)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && newDuration) {
+                                    e.preventDefault()
+                                    // Validar que la duración sea válida
+                                    if (newDuration >= 1) {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        availableDurations: prev.availableDurations.includes(newDuration)
+                                          ? prev.availableDurations
+                                          : [...prev.availableDurations, newDuration].sort((a, b) => a - b)
+                                      }))
+                                      setNewDuration(null) // Limpiar el input
+                                    }
+                                  }
+                                }}
+                                className={cn(
+                                  "w-full px-3 py-2 rounded-lg",
+                                  "border border-gray-200 bg-white",
+                                  "focus:outline-none focus:border-gray-300",
+                                  "transition-colors duration-200",
+                                  "placeholder:text-gray-400",
+                                  "text-sm",
+                                  "[appearance:textfield]",
+                                  "[&::-webkit-outer-spin-button]:appearance-none",
+                                  "[&::-webkit-inner-spin-button]:appearance-none",
+                                  "pr-12"
+                                )}
+                                min="1"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+                                min
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 pl-1">
+                              Presiona ENTER para agregar
                             </p>
                           </div>
-                          <Switch
-                            checked={formData.isIndoor}
-                            onCheckedChange={(checked) => 
-                              setFormData(prev => ({ ...prev, isIndoor: checked }))
-                            }
-                          />
-                        </div>
 
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <label className="text-sm font-medium">Iluminación</label>
-                            <p className="text-sm text-gray-500">
-                              La cancha cuenta con sistema de iluminación
-                            </p>
-                          </div>
-                          <Switch
-                            checked={formData.hasLighting}
-                            onCheckedChange={(checked) => 
-                              setFormData(prev => ({ ...prev, hasLighting: checked }))
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-medium">Duraciones disponibles</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {durationOptions.map((duration) => (
-                            <button
-                              key={duration}
-                              onClick={() => {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  availableDurations: prev.availableDurations.includes(duration)
-                                    ? prev.availableDurations.filter(d => d !== duration)
-                                    : [...prev.availableDurations, duration]
-                                }));
-                              }}
-                              className={`px-3 py-1 rounded-full text-sm ${
-                                formData.availableDurations.includes(duration)
-                                  ? 'bg-black text-white'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                            >
-                              {duration} min
-                            </button>
-                          ))}
+                          {/* Duraciones seleccionadas */}
+                          {formData.availableDurations.length > 0 && (
+                            <div className="pt-2 space-y-2">
+                              <span className="text-xs text-gray-500">
+                                Duraciones seleccionadas
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {formData.availableDurations.sort((a, b) => a - b).map((duration) => (
+                                  <div
+                                    key={duration}
+                                    className={cn(
+                                      "group inline-flex items-center gap-1.5",
+                                      "h-7 pl-2.5 pr-1.5 rounded-md",
+                                      "bg-gray-50 text-gray-700 text-sm",
+                                      "border border-gray-200",
+                                      "transition-all duration-200"
+                                    )}
+                                  >
+                                    <span>{duration} min</span>
+                                    <button
+                                      onClick={() => {
+                                        setFormData(prev => ({
+                                          ...prev,
+                                          availableDurations: prev.availableDurations.filter(d => d !== duration)
+                                        }));
+                                      }}
+                                      className={cn(
+                                        "w-4 h-4 rounded-sm",
+                                        "inline-flex items-center justify-center",
+                                        "text-gray-400 hover:text-gray-600",
+                                        "transition-colors duration-200"
+                                      )}
+                                    >
+                                      <span className="sr-only">Eliminar</span>
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  </AccordionItem>
-
-                  <AccordionItem
-                    title="Configuración de Precios"
-                    isOpen={openSection === "pricing"}
-                    onToggle={() => toggleSection("pricing")}
-                  >
-                    <div className="pt-2">
-                      <CourtPricingConfig
-                        pricing={formData.pricing}
-                        onChange={(pricing) => setFormData(prev => ({ ...prev, pricing }))}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="pricing-step"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="p-6 space-y-8"
+                    >
+                      <DurationPricing
+                        durations={formData.availableDurations}
+                        pricing={formData.durationPricing}
+                        onChange={(durationPricing) => setFormData(prev => ({ 
+                          ...prev, 
+                          durationPricing 
+                        }))}
                       />
-                    </div>
-                  </AccordionItem>
-                </div>
+
+                      <div className="pt-6 border-t">
+                        <CustomPricing
+                          pricing={formData.customPricing || {}}
+                          onChange={(customPricing) => setFormData(prev => ({
+                            ...prev,
+                            customPricing
+                          }))}
+                          basePricing={formData.durationPricing}
+                          availableDurations={formData.availableDurations}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
 
               <motion.div 
@@ -305,22 +494,50 @@ export function NewCourtModal({
                 className="p-6 border-t bg-white"
               >
                 <div className="flex gap-3">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={onClose}
-                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    Cancelar
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleSave}
-                    className="flex-1 bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors"
-                  >
-                    {mode === 'create' ? 'Guardar' : 'Actualizar'}
-                  </motion.button>
+                  {currentStep === 'pricing' ? (
+                    <>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleBack}
+                        className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors"
+                      >
+                        Anterior
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleSave}
+                        className="flex-1 bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors"
+                      >
+                        {mode === 'create' ? 'Guardar' : 'Actualizar'}
+                      </motion.button>
+                    </>
+                  ) : (
+                    <>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleClose}
+                        className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors"
+                      >
+                        Cancelar
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleNext}
+                        disabled={!isFirstStepValid()}
+                        className={`flex-1 px-4 py-2 rounded-md transition-colors ${
+                          isFirstStepValid()
+                            ? 'bg-black text-white hover:bg-gray-800'
+                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Siguiente
+                      </motion.button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             </div>
@@ -343,7 +560,7 @@ export function NewCourtModal({
                 >
                   <h3 className="text-lg font-semibold mb-2">Confirmar eliminación</h3>
                   <p className="text-gray-500 mb-6">
-                    ¿Está seguro que desea eliminar esta cancha? Esta acción no se puede deshacer.
+                    ¿Está seguro que desea eliminar esta pista? Esta acción no se puede deshacer.
                   </p>
                   <div className="flex justify-end gap-3">
                     <button
@@ -366,45 +583,5 @@ export function NewCourtModal({
         </>
       )}
     </AnimatePresence>
-  )
-}
-
-interface AccordionItemProps {
-  title: string
-  children: React.ReactNode
-  isOpen: boolean
-  onToggle: () => void
-}
-
-const AccordionItem = ({ title, children, isOpen, onToggle }: AccordionItemProps) => {
-  return (
-    <div className="border-b">
-      <button
-        className="w-full py-4 flex items-center justify-between text-left"
-        onClick={onToggle}
-      >
-        <span className="font-medium">{title}</span>
-        <IconChevronDown
-          className={`h-5 w-5 transition-transform duration-200 ${
-            isOpen ? "transform rotate-180" : ""
-          }`}
-        />
-      </button>
-      <motion.div
-        initial={false}
-        animate={{
-          height: isOpen ? "auto" : 0,
-          opacity: isOpen ? 1 : 0,
-          marginBottom: isOpen ? 16 : 0
-        }}
-        transition={{
-          duration: 0.3,
-          ease: "easeInOut"
-        }}
-        className="overflow-hidden"
-      >
-        {children}
-      </motion.div>
-    </div>
   )
 } 

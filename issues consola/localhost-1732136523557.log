@@ -1,0 +1,50 @@
+ 
+        
+        
+       GET http://localhost:3000/auth/login 404 (Not Found)
+eval @ webpack-internal:///…g/ItemsTable.tsx:62
+setTimeout
+mutationFn @ webpack-internal:///…g/ItemsTable.tsx:61
+main-app.js?v=1732136474831:1836 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+BranchContext.tsx:18 🔄 Recuperando sede guardada: {"id":"774cad23-40e6-4023-acce-4e0b61b415b8","name":"Sede Picante","address":"calle","phone":"+5692095","manager_id":"pepe","is_active":true,"opening_hours":{"friday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"monday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"sunday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"tuesday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"saturday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"thursday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"wednesday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]}},"settings":{}}
+BranchContext.tsx:18 🔄 Recuperando sede guardada: {"id":"774cad23-40e6-4023-acce-4e0b61b415b8","name":"Sede Picante","address":"calle","phone":"+5692095","manager_id":"pepe","is_active":true,"opening_hours":{"friday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"monday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"sunday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"tuesday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"saturday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"thursday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]},"wednesday":{"isOpen":true,"timeRanges":[{"openTime":"08:00","closeTime":"22:00"}]}},"settings":{}}
+app-index.js:33 Warning: Extra attributes from the server: viva-highlight-to-translate
+    at body
+    at html
+    at RootLayout (Server)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:76:9)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at DevRootNotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/dev-root-not-found-boundary.js:33:11)
+    at ReactDevOverlay (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/ReactDevOverlay.js:87:9)
+    at HotReload (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:321:11)
+    at Router (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:207:11)
+    at ErrorBoundaryHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:113:9)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at AppRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:585:13)
+    at ServerRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:112:27)
+    at Root (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:117:11)
+window.console.error @ app-index.js:33
+console.error @ hydration-error-info.js:63
+printWarning @ react-dom.development.js:94
+error @ react-dom.development.js:68
+warnForExtraAttributes @ react-dom.development.js:32731
+diffHydratedProperties @ react-dom.development.js:35117
+hydrateInstance @ react-dom.development.js:36127
+prepareToHydrateHostInstance @ react-dom.development.js:7246
+completeWork @ react-dom.development.js:19725
+completeUnitOfWork @ react-dom.development.js:25963
+performUnitOfWork @ react-dom.development.js:25759
+workLoopConcurrent @ react-dom.development.js:25734
+renderRootConcurrent @ react-dom.development.js:25690
+performConcurrentWorkOnRoot @ react-dom.development.js:24504
+workLoop @ scheduler.development.js:256
+flushWork @ scheduler.development.js:225
+performWorkUntilDeadline @ scheduler.development.js:534
+BranchContext.tsx:30 💾 Guardando sede: {id: '774cad23-40e6-4023-acce-4e0b61b415b8', name: 'Sede Picante', address: 'calle', phone: '+5692095', manager_id: 'pepe', …}
+organizationService.ts:6 📍 Obteniendo organización actual...
+BranchContext.tsx:30 💾 Guardando sede: {id: '774cad23-40e6-4023-acce-4e0b61b415b8', name: 'Sede Picante', address: 'calle', phone: '+5692095', manager_id: 'pepe', …}
+organizationService.ts:6 📍 Obteniendo organización actual...
+organizationService.ts:42 ✅ Organización obtenida: {id: '99f78081-24fa-4892-aae2-823816e7d132', name: 'Mi Empresa de Padel', business_name: 'Padel Pro S.L.', tax_id: 'B12345678', email: 'info@padelpro.com', …}
+organizationService.ts:42 ✅ Organización obtenida: {id: '99f78081-24fa-4892-aae2-823816e7d132', name: 'Mi Empresa de Padel', business_name: 'Padel Pro S.L.', tax_id: 'B12345678', email: 'info@padelpro.com', …}

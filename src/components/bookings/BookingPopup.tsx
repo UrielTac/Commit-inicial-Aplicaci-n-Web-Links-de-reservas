@@ -4,6 +4,7 @@ import { IconCreditCard, IconClock, IconUsers, IconSearch, IconPlus, IconX, Icon
 import { cn } from "@/lib/utils"
 import { type PaymentDetails, type Selection, type GuestForm, type PopupView } from "@/types/bookings"
 import { motion } from "framer-motion"
+import { useEffect, useState } from "react"
 
 interface ActionsViewProps {
   selection: Selection
@@ -54,37 +55,6 @@ interface ShiftDetailsViewProps {
   onCurrentGuestChange: (guest: Partial<GuestForm>) => void
   onMemberSearchChange: (search: string) => void
   onToggleNewUserForm: () => void
-  onViewChange: (view: PopupView) => void
-  formatDuration: (start: string, end: string) => string
-  formatSelectedCourts: (selection: Selection) => string
-}
-
-interface ClassInfoViewProps {
-  selection: Selection
-  classTitle: string
-  classDescription: string
-  onTitleChange: (title: string) => void
-  onDescriptionChange: (description: string) => void
-  onViewChange: (view: PopupView) => void
-  formatDuration: (start: string, end: string) => string
-  formatSelectedCourts: (selection: Selection) => string
-}
-
-interface ClassDetailsViewProps {
-  selection: Selection
-  guests: GuestForm[]
-  currentGuest: GuestForm
-  memberSearch: string
-  showNewUserForm: boolean
-  isWaitingListClass: boolean
-  classMaxParticipants: number
-  onAddGuest: () => void
-  onRemoveGuest: (id: string) => void
-  onCurrentGuestChange: (guest: Partial<GuestForm>) => void
-  onMemberSearchChange: (search: string) => void
-  onToggleNewUserForm: () => void
-  onWaitingListChange: (enabled: boolean) => void
-  onMaxParticipantsChange: (value: number) => void
   onViewChange: (view: PopupView) => void
   formatDuration: (start: string, end: string) => string
   formatSelectedCourts: (selection: Selection) => string
@@ -208,6 +178,13 @@ function RentalsView({
   formatDuration,
   formatSelectedCourts
 }: RentalsViewProps) {
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'equipment' | 'accessories'>('all')
+
+  // Filtrar items según la categoría seleccionada
+  const filteredItems = selectedCategory === 'all' 
+    ? sampleRentalItems 
+    : sampleRentalItems.filter(item => item.category === selectedCategory)
+
   return (
     <div className="animate-in fade-in duration-200">
       <div className="flex items-center gap-2 mb-6">
@@ -221,135 +198,247 @@ function RentalsView({
       </div>
 
       <div className="space-y-6 ml-9">
-        {/* Categorías de artículos */}
-        {['equipment', 'accessories'].map(category => {
-          const items = sampleRentalItems.filter(item => item.category === category)
-          if (items.length === 0) return null
+        {/* Filtros de categoría */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSelectedCategory('all')}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-full transition-all",
+              selectedCategory === 'all'
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            Todos
+          </button>
+          <button
+            onClick={() => setSelectedCategory('equipment')}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-full transition-all",
+              selectedCategory === 'equipment'
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            Equipamiento
+          </button>
+          <button
+            onClick={() => setSelectedCategory('accessories')}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-full transition-all",
+              selectedCategory === 'accessories'
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            Accesorios
+          </button>
+        </div>
 
-          return (
-            <div key={category} className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-700 capitalize">
-                {category === 'equipment' ? 'Equipamiento' : 'Accesorios'}
-              </h3>
-              <div className="space-y-2">
-                {items.map(item => {
-                  const selectedItem = selectedRentals.find(
-                    rental => rental.itemId === item.id
-                  )
-                  const quantity = selectedItem?.quantity || 0
-
-                  return (
-                    <motion.div
-                      key={item.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={cn(
-                        "group relative p-4 rounded-lg border transition-all duration-200",
-                        quantity > 0
-                          ? "bg-gray-50 ring-1 ring-black/5 border-transparent"
-                          : "bg-white border-gray-200 hover:border-gray-300"
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        {/* Información del Artículo */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {item.name}
-                            </h4>
-                            <span className="text-sm font-medium text-gray-900 whitespace-nowrap ml-2">
-                              ${item.price}
-                            </span>
-                          </div>
-                          {item.description && (
-                            <p className="text-xs text-gray-500 line-clamp-1 mb-2">
-                              {item.description}
-                            </p>
-                          )}
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">
-                              {item.available} disponibles
-                            </span>
-                            {/* Controles de Cantidad */}
-                            <div className="flex items-center gap-3 bg-gray-50 rounded-md px-2">
-                              <button
-                                onClick={() => {
-                                  if (quantity === 0) return
-                                  onRentalChange(
-                                    quantity === 1
-                                      ? selectedRentals.filter(rental => rental.itemId !== item.id)
-                                      : selectedRentals.map(rental =>
-                                          rental.itemId === item.id
-                                            ? { ...rental, quantity: rental.quantity - 1 }
-                                            : rental
-                                        )
-                                  )
-                                }}
-                                className={cn(
-                                  "p-1.5 rounded-md transition-all duration-200",
-                                  quantity > 0
-                                    ? "text-gray-700 hover:bg-gray-200"
-                                    : "text-gray-300 cursor-not-allowed"
-                                )}
-                              >
-                                <IconMinus className="w-4 h-4" />
-                              </button>
-                              <span className="w-8 text-center text-sm font-medium text-gray-900">
-                                {quantity}
-                              </span>
-                              <button
-                                onClick={() => {
-                                  if (quantity >= item.available) return
-                                  onRentalChange(
-                                    quantity === 0
-                                      ? [...selectedRentals, { itemId: item.id, quantity: 1 }]
-                                      : selectedRentals.map(rental =>
-                                          rental.itemId === item.id
-                                            ? { ...rental, quantity: rental.quantity + 1 }
-                                            : rental
-                                        )
-                                  )
-                                }}
-                                className={cn(
-                                  "p-1.5 rounded-md transition-all duration-200",
-                                  quantity < item.available
-                                    ? "text-gray-700 hover:bg-gray-200"
-                                    : "text-gray-300 cursor-not-allowed"
-                                )}
-                              >
-                                <IconPlus className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )
-                })}
+        {/* Lista de artículos */}
+        <div className="grid gap-3">
+          {filteredItems.map((item, index) => (
+            <motion.div
+              key={item.id}
+              initial={{ 
+                opacity: 0,
+                y: 5
+              }}
+              animate={{ 
+                opacity: 1,
+                y: 0,
+                transition: {
+                  duration: 0.6,
+                  delay: index * 0.15,
+                  ease: [0.21, 0.68, 0.47, 0.98] // Curva de animación suave y natural
+                }
+              }}
+              exit={{ 
+                opacity: 0,
+                y: 5,
+                transition: {
+                  duration: 0.3,
+                  ease: 'easeInOut'
+                }
+              }}
+              className={cn(
+                "group relative p-4 rounded-lg border",
+                "transform-gpu backdrop-blur-[2px]",
+                "transition-all duration-300 ease-out",
+                selectedRentals.find(rental => rental.itemId === item.id)?.quantity > 0
+                  ? "bg-gray-50/70 ring-1 ring-black/[0.03] border-transparent"
+                  : "bg-white/70 border-gray-200/80 hover:border-gray-300/90"
+              )}
+            >
+              <div className="flex items-center justify-between gap-4">
+                {/* Información del Artículo */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="text-sm font-medium text-gray-900 truncate">
+                      {item.name}
+                    </h4>
+                    <span className="text-sm font-medium text-gray-900 whitespace-nowrap ml-2">
+                      ${item.price}
+                    </span>
+                  </div>
+                  {item.description && (
+                    <p className="text-xs text-gray-500 line-clamp-1 mb-2">
+                      {item.description}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">
+                      {item.available} disponibles
+                    </span>
+                    {/* Controles de Cantidad */}
+                    <div className="flex items-center gap-3 bg-gray-50/60 rounded-md px-2">
+                      <motion.button
+                        whileHover={{ 
+                          scale: 1.01,
+                          transition: { duration: 0.15 }
+                        }}
+                        whileTap={{ 
+                          scale: 0.99,
+                          transition: { duration: 0.1 }
+                        }}
+                        onClick={() => {
+                          const quantity = selectedRentals.find(rental => rental.itemId === item.id)?.quantity || 0
+                          if (quantity === 0) return
+                          onRentalChange(
+                            quantity === 1
+                              ? selectedRentals.filter(rental => rental.itemId !== item.id)
+                              : selectedRentals.map(rental =>
+                                  rental.itemId === item.id
+                                    ? { ...rental, quantity: rental.quantity - 1 }
+                                    : rental
+                                )
+                          )
+                        }}
+                        className={cn(
+                          "p-1.5 rounded-md transition-all duration-200",
+                          selectedRentals.find(rental => rental.itemId === item.id)?.quantity > 0
+                            ? "text-gray-700 hover:bg-gray-200"
+                            : "text-gray-300 cursor-not-allowed"
+                        )}
+                      >
+                        <IconMinus className="w-4 h-4" />
+                      </motion.button>
+                      
+                      <motion.span
+                        key={selectedRentals.find(rental => rental.itemId === item.id)?.quantity || 0}
+                        initial={{ opacity: 0, y: -2 }}
+                        animate={{ 
+                          opacity: 1, 
+                          y: 0,
+                          transition: {
+                            duration: 0.2,
+                            ease: 'easeOut'
+                          }
+                        }}
+                        className="w-8 text-center text-sm font-medium text-gray-900"
+                      >
+                        {selectedRentals.find(rental => rental.itemId === item.id)?.quantity || 0}
+                      </motion.span>
+                      
+                      <motion.button
+                        whileHover={{ 
+                          scale: 1.01,
+                          transition: { duration: 0.15 }
+                        }}
+                        whileTap={{ 
+                          scale: 0.99,
+                          transition: { duration: 0.1 }
+                        }}
+                        onClick={() => {
+                          const quantity = selectedRentals.find(rental => rental.itemId === item.id)?.quantity || 0
+                          if (quantity >= item.available) return
+                          onRentalChange(
+                            quantity === 0
+                              ? [...selectedRentals, { itemId: item.id, quantity: 1 }]
+                              : selectedRentals.map(rental =>
+                                  rental.itemId === item.id
+                                    ? { ...rental, quantity: rental.quantity + 1 }
+                                    : rental
+                                )
+                          )
+                        }}
+                        className={cn(
+                          "p-1.5 rounded-md transition-all duration-200",
+                          (selectedRentals.find(rental => rental.itemId === item.id)?.quantity || 0) < item.available
+                            ? "text-gray-700 hover:bg-gray-200"
+                            : "text-gray-300 cursor-not-allowed"
+                        )}
+                      >
+                        <IconPlus className="w-4 h-4" />
+                      </motion.button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          )
-        })}
+            </motion.div>
+          ))}
+        </div>
 
-        {/* Resumen de Alquiler */}
+        {/* Resumen de Alquiler - Actualizar animación */}
         {selectedRentals.length > 0 && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100"
+            initial={{ 
+              opacity: 0,
+              y: 10,
+              scale: 0.99
+            }}
+            animate={{ 
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              transition: {
+                duration: 0.5,
+                ease: [0.21, 0.68, 0.47, 0.98]
+              }
+            }}
+            exit={{
+              opacity: 0,
+              scale: 0.99,
+              transition: {
+                duration: 0.3,
+                ease: 'easeInOut'
+              }
+            }}
+            className="mt-6 p-4 bg-gray-50/60 backdrop-blur-[2px] rounded-lg border border-gray-100/60"
           >
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-gray-900">
+              <motion.h4 
+                initial={{ opacity: 0 }}
+                animate={{ 
+                  opacity: 1,
+                  transition: { 
+                    delay: 0.1, 
+                    duration: 0.4,
+                    ease: 'easeOut'
+                  }
+                }}
+                className="text-sm font-medium text-gray-900"
+              >
                 Resumen del Alquiler
-              </h4>
+              </motion.h4>
               <div className="space-y-2">
-                {selectedRentals.map(rental => {
+                {selectedRentals.map((rental, index) => {
                   const item = sampleRentalItems.find(i => i.id === rental.itemId)
                   if (!item) return null
 
                   return (
-                    <div 
+                    <motion.div 
                       key={rental.itemId}
+                      initial={{ opacity: 0, x: -5 }}
+                      animate={{ 
+                        opacity: 1, 
+                        x: 0,
+                        transition: {
+                          delay: 0.2 + (index * 0.08),
+                          duration: 0.4,
+                          ease: 'easeOut'
+                        }
+                      }}
                       className="flex justify-between text-sm"
                     >
                       <span className="text-gray-600">
@@ -358,18 +447,28 @@ function RentalsView({
                       <span className="font-medium text-gray-900">
                         ${(item.price * rental.quantity).toLocaleString()}
                       </span>
-                    </div>
+                    </motion.div>
                   )
                 })}
-                <div className="pt-2 border-t flex justify-between text-sm">
-                  <span className="font-medium text-gray-900">Total Alquiler</span>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ 
+                    opacity: 1,
+                    transition: { 
+                      delay: 0.2 + (selectedRentals.length * 0.08),
+                      duration: 0.4
+                    }
+                  }}
+                  className="pt-2 border-t flex justify-between text-sm"
+                >
+                  <span className="font-medium text-gray-900">Total</span>
                   <span className="font-medium text-gray-900">
                     ${selectedRentals.reduce((total, rental) => {
                       const item = sampleRentalItems.find(i => i.id === rental.itemId)
                       return total + (item?.price || 0) * rental.quantity
                     }, 0).toLocaleString()}
                   </span>
-                </div>
+                </motion.div>
               </div>
             </div>
           </motion.div>
@@ -454,46 +553,11 @@ function ActionsView({ selection, hasBlockedSlots, onViewChange, onClearBlocks, 
 }
 
 function BookingTypeView({ selection, onViewChange, formatDuration, formatSelectedCourts }: BookingTypeViewProps) {
-  return (
-    <div className="animate-in fade-in duration-200">
-      <h4 className="font-medium mb-2">Tipo de Reserva</h4>
-      <div className="space-y-1 mb-4">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            {`${selection.startTime} - ${selection.endTime}`}
-          </p>
-          <p className="text-xs font-medium text-gray-400">
-            {formatDuration(selection.startTime, selection.endTime)}
-          </p>
-        </div>
-        <p className="text-sm text-gray-500">
-          {formatSelectedCourts(selection)}
-        </p>
-      </div>
-      <div className="space-y-2">
-        <button
-          onClick={() => onViewChange('shift-info')}
-          className="w-full p-2.5 border border-gray-200 rounded-lg bg-white text-gray-600 transition-all duration-200 flex items-center justify-between group hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300"
-        >
-          <span className="font-medium">Turno</span>
-          <span className="opacity-0 text-gray-900 group-hover:opacity-100 transition-all duration-200">→</span>
-        </button>
-        <button
-          onClick={() => onViewChange('class-info')}
-          className="w-full p-2.5 border border-gray-200 rounded-lg bg-white text-gray-600 transition-all duration-200 flex items-center justify-between group hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300"
-        >
-          <span className="font-medium">Clase</span>
-          <span className="opacity-0 text-gray-900 group-hover:opacity-100 transition-all duration-200">→</span>
-        </button>
-        <button
-          onClick={() => onViewChange('actions')}
-          className="w-full p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors mt-4 text-sm"
-        >
-          Cancelar
-        </button>
-      </div>
-    </div>
-  )
+  useEffect(() => {
+    onViewChange('shift-info')
+  }, [onViewChange])
+
+  return null
 }
 
 function PaymentView({
@@ -1035,355 +1099,6 @@ function ShiftDetailsView({
   )
 }
 
-function ClassInfoView({
-  selection,
-  classTitle,
-  classDescription,
-  onTitleChange,
-  onDescriptionChange,
-  onViewChange,
-  formatDuration,
-  formatSelectedCourts
-}: ClassInfoViewProps) {
-  return (
-    <div className="animate-in fade-in duration-200">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 rounded-full bg-blue-500">
-          <IconUsers className="w-5 h-5 text-white" />
-        </div>
-        <h4 className="font-semibold text-gray-900">
-          Información de la Clase
-        </h4>
-      </div>
-      <div className="space-y-4 ml-9">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <IconClock className="w-5 h-5 text-gray-400" />
-            <p className="text-sm text-gray-500">
-              {`${selection.startTime} - ${selection.endTime}`}
-            </p>
-          </div>
-          <div className="space-y-1 ml-7">
-            <p className="text-sm text-gray-500">
-              {formatSelectedCourts(selection)}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Título de la clase
-            </label>
-            <input
-              type="text"
-              value={classTitle}
-              onChange={(e) => onTitleChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900"
-              placeholder="Opcional: Nombre personalizado para la clase"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descripción
-            </label>
-            <textarea
-              value={classDescription}
-              onChange={(e) => onDescriptionChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 resize-none"
-              placeholder="Opcional: Agregar detalles sobre la clase"
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end items-center gap-3 pt-2">
-          <button
-            onClick={() => onViewChange('booking-type')}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all duration-200"
-          >
-            Volver
-          </button>
-          <button
-            onClick={() => onViewChange('class-details')}
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all duration-200"
-          >
-            Siguiente
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ClassDetailsView({
-  selection,
-  guests,
-  currentGuest,
-  memberSearch,
-  showNewUserForm,
-  isWaitingListClass,
-  classMaxParticipants,
-  onAddGuest,
-  onRemoveGuest,
-  onCurrentGuestChange,
-  onMemberSearchChange,
-  onToggleNewUserForm,
-  onWaitingListChange,
-  onMaxParticipantsChange,
-  onViewChange,
-  formatDuration,
-  formatSelectedCourts
-}: ClassDetailsViewProps) {
-  return (
-    <div className="animate-in fade-in duration-200">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="p-2 rounded-full bg-blue-500">
-          <IconUsers className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h4 className="font-semibold text-gray-900">Participantes de la Clase</h4>
-          <p className="text-sm text-gray-500">Gestiona los participantes para esta clase</p>
-        </div>
-      </div>
-
-      <div className="space-y-6 ml-9">
-        {/* Información del horario */}
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <IconClock className="w-5 h-5 text-gray-400" />
-            <p className="text-sm text-gray-500">
-              {`${selection.startTime} - ${selection.endTime}`}
-            </p>
-          </div>
-          <div className="space-y-1 ml-7">
-            <p className="text-sm text-gray-500">
-              {formatSelectedCourts(selection)}
-            </p>
-          </div>
-        </div>
-
-        {/* Lista de participantes */}
-        <div className="space-y-4">
-          {/* Selector de modo */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => onWaitingListChange(false)}
-              className={cn(
-                "flex-1 py-2 text-sm rounded-lg transition-colors",
-                !isWaitingListClass 
-                  ? "bg-blue-500 text-white" 
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              Selección Manual
-            </button>
-            <button
-              onClick={() => onWaitingListChange(true)}
-              className={cn(
-                "flex-1 py-2 text-sm rounded-lg transition-colors",
-                isWaitingListClass 
-                  ? "bg-blue-500 text-white" 
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              Lista de Espera
-            </button>
-          </div>
-
-          {isWaitingListClass ? (
-            // Modo Lista de Espera
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Límite de participantes
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min="1"
-                    value={classMaxParticipants}
-                    onChange={(e) => onMaxParticipantsChange(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-all"
-                    placeholder="Número máximo de participantes"
-                  />
-                  <span className="text-sm text-gray-500">participantes</span>
-                </div>
-              </div>
-              <p className="text-sm text-gray-500">
-                Los participantes podrán unirse a la clase hasta alcanzar el límite establecido
-              </p>
-            </div>
-          ) : (
-            // Modo Selección Manual
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    Participantes
-                  </span>
-                  {guests.length > 0 && (
-                    <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
-                      {guests.length}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={onToggleNewUserForm}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-white bg-gray-100 hover:bg-gray-900 rounded-full transition-all duration-200"
-                >
-                  {showNewUserForm ? (
-                    <>
-                      <IconSearch className="w-3.5 h-3.5" />
-                      Buscar existente
-                    </>
-                  ) : (
-                    <>
-                      <IconPlus className="w-3.5 h-3.5" />
-                      Crear nuevo
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Lista de participantes agregados */}
-              {guests.length > 0 && (
-                <div className="grid gap-2">
-                  {guests.map(guest => (
-                    <div 
-                      key={guest.id}
-                      className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 shadow-[0_1px_3px_0_rgb(0,0,0,0.02)] group hover:border-blue-200 hover:bg-blue-50/30 transition-all duration-200"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                          <span className="text-sm font-medium text-blue-700">
-                            {guest.fullName.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900">{guest.fullName}</span>
-                          <span className="text-xs text-gray-500">
-                            {guest.email || guest.dni}
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => onRemoveGuest(guest.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                      >
-                        <IconX className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Formulario para agregar participantes */}
-              <div className="mt-4">
-                {showNewUserForm ? (
-                  <div className="space-y-4 p-4 bg-white rounded-xl border border-gray-100 shadow-[0_1px_3px_0_rgb(0,0,0,0.02)]">
-                    <div className="space-y-3">
-                      <input
-                        type="text"
-                        value={currentGuest.fullName}
-                        onChange={(e) => onCurrentGuestChange({ fullName: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900"
-                        placeholder="Nombre completo"
-                      />
-                      <div className="grid grid-cols-2 gap-3">
-                        <input
-                          type="text"
-                          value={currentGuest.dni}
-                          onChange={(e) => onCurrentGuestChange({ dni: e.target.value })}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900"
-                          placeholder="DNI"
-                        />
-                        <input
-                          type="email"
-                          value={currentGuest.email}
-                          onChange={(e) => onCurrentGuestChange({ email: e.target.value })}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900"
-                          placeholder="Email (opcional)"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={onAddGuest}
-                      disabled={!currentGuest.fullName.trim() || !currentGuest.dni.trim()}
-                      className={cn(
-                        "w-full p-2 rounded-lg text-sm font-medium transition-all duration-200",
-                        currentGuest.fullName.trim() && currentGuest.dni.trim()
-                          ? "bg-gray-900 text-white hover:bg-gray-800"
-                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      )}
-                    >
-                      Agregar Participante
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={memberSearch}
-                        onChange={(e) => onMemberSearchChange(e.target.value)}
-                        className="w-full px-4 py-3 pl-10 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 shadow-[0_1px_3px_0_rgb(0,0,0,0.02)] transition-all"
-                        placeholder="Buscar participante existente..."
-                      />
-                      <IconSearch className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    </div>
-                    
-                    {memberSearch.trim() && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto z-50">
-                        <button
-                          onClick={() => {
-                            onCurrentGuestChange({
-                              fullName: memberSearch,
-                              dni: '12345678',
-                              email: 'usuario@ejemplo.com'
-                            })
-                            onAddGuest()
-                            onMemberSearchChange('')
-                          }}
-                          className="w-full p-2 text-left hover:bg-gray-50 flex items-center justify-between group"
-                        >
-                          {memberSearch}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Botones de acción */}
-        <div className="flex justify-end items-center gap-3">
-          <button
-            onClick={() => onViewChange('class-info')}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all duration-200"
-          >
-            Volver
-          </button>
-          <button
-            onClick={() => onViewChange('class-payment')}
-            disabled={!isWaitingListClass && guests.length === 0}
-            className={cn(
-              "px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-              (!isWaitingListClass && guests.length === 0)
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-blue-500 text-white hover:bg-blue-600"
-            )}
-          >
-            Siguiente
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function BlockingView({
   selection,
   blockReason,
@@ -1451,14 +1166,66 @@ export function BookingPopup(props: BookingPopupProps) {
     }
   }
 
+  // Calcular la posición ajustada del popup
+  const adjustedPosition = (() => {
+    const popupWidth = parseInt(getPopupWidth(props.view))
+    const tableContainer = document.querySelector('.booking-table-container')
+    const tableRect = tableContainer?.getBoundingClientRect()
+    
+    if (!tableRect) return { x: props.position.x, y: props.position.y }
+
+    let x = props.position.x
+    let y = props.position.y
+    const SPACING = 16
+    
+    // Calcular límites del contenedor
+    const containerLeft = tableRect.left
+    const containerRight = tableRect.right
+    const containerTop = tableRect.top
+    const containerBottom = tableRect.bottom
+
+    // Estimar altura del popup (podemos ajustar según el view)
+    const estimatedHeight = props.view === 'actions' ? 150 : 400
+
+    // Ajuste horizontal
+    if (x + popupWidth > containerRight - SPACING) {
+      const leftPosition = x - popupWidth - SPACING
+      if (leftPosition >= containerLeft + SPACING) {
+        x = leftPosition
+      } else {
+        x = containerRight - popupWidth - SPACING
+      }
+    }
+    x = Math.max(containerLeft + SPACING, x)
+
+    // Ajuste vertical
+    if (y + estimatedHeight > containerBottom - SPACING) {
+      // Si no hay espacio abajo, intentar colocar arriba del punto de click
+      const topPosition = y - estimatedHeight - SPACING
+      if (topPosition >= containerTop + SPACING) {
+        y = topPosition
+      } else {
+        // Si tampoco hay espacio arriba, colocar lo más arriba posible
+        y = containerTop + SPACING
+      }
+    }
+    y = Math.max(containerTop + SPACING, y)
+
+    return {
+      x: x - containerLeft,
+      y: y - containerTop
+    }
+  })()
+
   return (
     <div 
-      className="absolute bg-white rounded-xl shadow-lg border p-4 overflow-hidden"
+      className="absolute bg-white rounded-xl shadow-lg border p-4 overflow-auto"
       style={{ 
-        left: `${props.position.x}px`, 
-        top: `${props.position.y}px`,
+        left: `${adjustedPosition.x}px`, 
+        top: `${adjustedPosition.y}px`,
         width: getPopupWidth(props.view),
-        transition: 'all 100ms cubic-bezier(0.3, 0, 0.2, 1)',
+        maxHeight: '80vh',
+        transition: 'all 200ms cubic-bezier(0.3, 0, 0.2, 1)',
         opacity: 1,
         transform: 'scale(1)',
         zIndex: 9999,
@@ -1526,41 +1293,6 @@ export function BookingPopup(props: BookingPopupProps) {
             onCurrentGuestChange={props.onCurrentGuestChange}
             onMemberSearchChange={props.onMemberSearchChange}
             onToggleNewUserForm={props.onToggleNewUserForm}
-            onViewChange={props.onViewChange}
-            formatDuration={props.formatDuration}
-            formatSelectedCourts={props.formatSelectedCourts}
-          />
-        )}
-
-        {props.view === 'class-info' && (
-          <ClassInfoView 
-            selection={props.selection}
-            classTitle={props.classTitle}
-            classDescription={props.classDescription}
-            onTitleChange={props.onClassTitleChange}
-            onDescriptionChange={props.onClassDescriptionChange}
-            onViewChange={props.onViewChange}
-            formatDuration={props.formatDuration}
-            formatSelectedCourts={props.formatSelectedCourts}
-          />
-        )}
-
-        {props.view === 'class-details' && (
-          <ClassDetailsView 
-            selection={props.selection}
-            guests={props.guests}
-            currentGuest={props.currentGuest}
-            memberSearch={props.memberSearch}
-            showNewUserForm={props.showNewUserForm}
-            isWaitingListClass={props.isWaitingListClass}
-            classMaxParticipants={props.classMaxParticipants}
-            onAddGuest={props.onAddGuest}
-            onRemoveGuest={props.onRemoveGuest}
-            onCurrentGuestChange={props.onCurrentGuestChange}
-            onMemberSearchChange={props.onMemberSearchChange}
-            onToggleNewUserForm={props.onToggleNewUserForm}
-            onWaitingListChange={props.onWaitingListChange}
-            onMaxParticipantsChange={props.onMaxParticipantsChange}
             onViewChange={props.onViewChange}
             formatDuration={props.formatDuration}
             formatSelectedCourts={props.formatSelectedCourts}

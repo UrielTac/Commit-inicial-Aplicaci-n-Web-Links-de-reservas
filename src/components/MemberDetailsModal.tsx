@@ -11,24 +11,27 @@ import es from 'date-fns/locale/es'
 import { ReservationHistoryModal } from "@/components/ReservationHistoryModal"
 import { ReservationStats } from "@/components/stats/ReservationStats"
 import { ReservationStatsAlt } from "@/components/stats/ReservationStatsAlt"
+import { toast } from "sonner"
 
 interface Member {
-  name: string
+  firstName: string
+  lastName: string
   email: string
   status: string
   date: string
   gender: string
   phone?: string
-  dni?: string
+  notes?: string
   membershipDetails?: {
     startDate: string
     price: number
     lastPayment: string
     nextPayment: string
-    cancelDate?: Date // Nueva propiedad para la fecha de cancelación
+    cancelDate?: Date
   }
   isPaused?: boolean
-  reservationStats?: ReservationStats;
+  reservationStats?: ReservationStats
+  created_at: string
 }
 
 interface MemberDetailsModalProps {
@@ -84,6 +87,26 @@ const AccordionItem = ({ title, children, isOpen, onToggle }: AccordionItemProps
   )
 }
 
+// Función para traducir el género
+const formatGender = (gender: string | undefined) => {
+  const genderMap = {
+    'male': 'Hombre',
+    'female': 'Mujer',
+    'not_specified': 'Prefiero no decirlo'
+  }
+  return gender ? genderMap[gender as keyof typeof genderMap] || gender : '-'
+}
+
+// Función para formatear la fecha
+const formatDate = (dateString: string) => {
+  try {
+    return format(new Date(dateString), 'dd MMM yyyy', { locale: es })
+  } catch (error) {
+    console.error('Error al formatear fecha:', error)
+    return 'Fecha no válida'
+  }
+}
+
 export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsModalProps) {
   // Cambiamos el estado inicial a string vacío para que todo esté cerrado
   const [openSection, setOpenSection] = useState<string>("")
@@ -91,27 +114,30 @@ export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsMod
   const [isGenderSelectOpen, setIsGenderSelectOpen] = useState(false)
   const [selectedGender, setSelectedGender] = useState(member?.gender || "")
   const [editableFields, setEditableFields] = useState<Record<string, boolean>>({
-    name: false,
+    firstName: false,
+    lastName: false,
     email: false,
     gender: false,
     phone: false,
-    dni: false
+    notes: false
   })
   const [formData, setFormData] = useState({
-    name: member?.name || "",
+    firstName: member?.firstName || "",
+    lastName: member?.lastName || "",
     email: member?.email || "",
     gender: member?.gender || "",
     phone: member?.phone || "",
-    dni: member?.dni || ""
+    notes: member?.notes || ""
   })
 
   // Estado para controlar el popup de confirmación
   const [popoverOpen, setPopoverOpen] = useState<Record<string, boolean>>({
-    name: false,
+    firstName: false,
+    lastName: false,
     email: false,
     gender: false,
     phone: false,
-    dni: false
+    notes: false
   })
 
   // Estado para controlar el menú de opciones de género
@@ -197,15 +223,16 @@ export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsMod
   useEffect(() => {
     if (member) {
       setFormData({
-        name: member.name,
+        firstName: member.first_name || '',
+        lastName: member.last_name || '',
         email: member.email,
-        gender: member.gender,
-        phone: member.phone,
-        dni: member.dni
+        gender: formatGender(member.gender),
+        phone: member.phone || '',
+        notes: member.notes || ''
       })
-      setSelectedGender(member.gender)
+      setSelectedGender(formatGender(member.gender))
       setSelectedPlan(member.status)
-      setOpenSection("") // Agregamos esta línea
+      setOpenSection("")
     }
   }, [member])
 
@@ -313,108 +340,125 @@ export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsMod
               >
                 <div className="p-6 space-y-8">
                   {/* Sección de Detalles */}
-                  <div className="space-y-4">
-                    {/* Campo Nombre */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Nombre completo</label>
-                      <Popover open={popoverOpen.name} onOpenChange={(open) => {
-                        if (!editableFields.name) {
-                          setPopoverOpen(prev => ({ ...prev, name: open }))
-                        }
-                      }}>
-                        <PopoverTrigger asChild>
-                          <input
-                            type="text"
-                            className={`w-full pb-2 border-b ${
-                              editableFields.name ? 'border-black' : 'border-gray-200'
-                            } focus:border-black outline-none transition-colors bg-transparent cursor-pointer ${
-                              editableFields.name ? 'text-gray-900' : 'text-gray-500'
-                            }`}
-                            value={formData.name}
-                            onChange={(e) => handleInputChange('name', e.target.value)}
-                            readOnly={!editableFields.name}
-                            onBlur={() => handleClosePopup('name')}
-                          />
-                        </PopoverTrigger>
-                        {!editableFields.name && (
-                          <PopoverContent className="w-auto p-3">
-                            <div className="text-sm">
-                              <p>¿Desea modificar este campo?</p>
-                              <div className="flex justify-end gap-2 mt-2">
-                                <button 
-                                  className="px-2 py-1 text-xs bg-gray-100 rounded-md hover:bg-gray-200"
-                                  onClick={() => {
-                                    handleEditRequest('name')
-                                    handlePopoverClose('name')
-                                  }}
-                                >
-                                  Sí
-                                </button>
-                                <button 
-                                  className="px-2 py-1 text-xs bg-black text-white rounded-md hover:bg-gray-800"
-                                  onClick={() => handlePopoverClose('name')}
-                                >
-                                  No
-                                </button>
+                  <div className="space-y-6">
+                    {/* Nombre y Apellido */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Campo Nombre */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Nombre
+                        </label>
+                        <Popover open={popoverOpen.firstName} onOpenChange={(open) => {
+                          if (!editableFields.firstName) {
+                            setPopoverOpen(prev => ({ ...prev, firstName: open }))
+                          }
+                        }}>
+                          <PopoverTrigger asChild>
+                            <input
+                              type="text"
+                              className={cn(
+                                "w-full px-3 py-2 rounded-lg",
+                                "border border-gray-200 bg-white",
+                                "focus:outline-none focus:border-gray-300",
+                                "transition-colors duration-200",
+                                "placeholder:text-gray-400",
+                                "text-sm",
+                                editableFields.firstName ? "text-gray-900" : "text-gray-500"
+                              )}
+                              value={formData.firstName}
+                              onChange={(e) => handleInputChange('firstName', e.target.value)}
+                              readOnly={!editableFields.firstName}
+                              placeholder="Ingrese el nombre"
+                            />
+                          </PopoverTrigger>
+                          {!editableFields.firstName && (
+                            <PopoverContent className="w-auto p-3">
+                              <div className="text-sm">
+                                <p>¿Desea modificar este campo?</p>
+                                <div className="flex justify-end gap-2 mt-2">
+                                  <button 
+                                    className="px-2 py-1 text-xs bg-gray-100 rounded-md hover:bg-gray-200"
+                                    onClick={() => {
+                                      handleEditRequest('firstName')
+                                      handlePopoverClose('firstName')
+                                    }}
+                                  >
+                                    Sí
+                                  </button>
+                                  <button 
+                                    className="px-2 py-1 text-xs bg-black text-white rounded-md hover:bg-gray-800"
+                                    onClick={() => handlePopoverClose('firstName')}
+                                  >
+                                    No
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          </PopoverContent>
-                        )}
-                      </Popover>
+                            </PopoverContent>
+                          )}
+                        </Popover>
+                      </div>
+
+                      {/* Campo Apellido */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Apellido
+                        </label>
+                        <Popover open={popoverOpen.lastName} onOpenChange={(open) => {
+                          if (!editableFields.lastName) {
+                            setPopoverOpen(prev => ({ ...prev, lastName: open }))
+                          }
+                        }}>
+                          <PopoverTrigger asChild>
+                            <input
+                              type="text"
+                              className={cn(
+                                "w-full px-3 py-2 rounded-lg",
+                                "border border-gray-200 bg-white",
+                                "focus:outline-none focus:border-gray-300",
+                                "transition-colors duration-200",
+                                "placeholder:text-gray-400",
+                                "text-sm",
+                                editableFields.lastName ? "text-gray-900" : "text-gray-500"
+                              )}
+                              value={formData.lastName}
+                              onChange={(e) => handleInputChange('lastName', e.target.value)}
+                              readOnly={!editableFields.lastName}
+                              placeholder="Ingrese el apellido"
+                            />
+                          </PopoverTrigger>
+                          {!editableFields.lastName && (
+                            <PopoverContent className="w-auto p-3">
+                              <div className="text-sm">
+                                <p>¿Desea modificar este campo?</p>
+                                <div className="flex justify-end gap-2 mt-2">
+                                  <button 
+                                    className="px-2 py-1 text-xs bg-gray-100 rounded-md hover:bg-gray-200"
+                                    onClick={() => {
+                                      handleEditRequest('lastName')
+                                      handlePopoverClose('lastName')
+                                    }}
+                                  >
+                                    Sí
+                                  </button>
+                                  <button 
+                                    className="px-2 py-1 text-xs bg-black text-white rounded-md hover:bg-gray-800"
+                                    onClick={() => handlePopoverClose('lastName')}
+                                  >
+                                    No
+                                  </button>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          )}
+                        </Popover>
+                      </div>
                     </div>
 
-                    {/* Campo Email */}
+                    {/* Campo Teléfono */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Email</label>
-                      <Popover open={popoverOpen.email} onOpenChange={(open) => {
-                        if (!editableFields.email) {
-                          setPopoverOpen(prev => ({ ...prev, email: open }))
-                        }
-                      }}>
-                        <PopoverTrigger asChild>
-                          <input
-                            type="email"
-                            className={`w-full pb-2 border-b ${
-                              editableFields.email ? 'border-black' : 'border-gray-200'
-                            } focus:border-black outline-none transition-colors bg-transparent cursor-pointer ${
-                              editableFields.email ? 'text-gray-900' : 'text-gray-500'
-                            }`}
-                            value={formData.email}
-                            onChange={(e) => handleInputChange('email', e.target.value)}
-                            readOnly={!editableFields.email}
-                            onBlur={() => handleClosePopup('email')}
-                          />
-                        </PopoverTrigger>
-                        {!editableFields.email && (
-                          <PopoverContent className="w-auto p-3">
-                            <div className="text-sm">
-                              <p>¿Desea modificar este campo?</p>
-                              <div className="flex justify-end gap-2 mt-2">
-                                <button 
-                                  className="px-2 py-1 text-xs bg-gray-100 rounded-md hover:bg-gray-200"
-                                  onClick={() => {
-                                    handleEditRequest('email')
-                                    handlePopoverClose('email')
-                                  }}
-                                >
-                                  Sí
-                                </button>
-                                <button 
-                                  className="px-2 py-1 text-xs bg-black text-white rounded-md hover:bg-gray-800"
-                                  onClick={() => handlePopoverClose('email')}
-                                >
-                                  No
-                                </button>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        )}
-                      </Popover>
-                    </div>
-
-                    {/* Campo Número */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Número</label>
+                      <label className="text-sm font-medium text-gray-700">
+                        Número de teléfono
+                      </label>
                       <Popover open={popoverOpen.phone} onOpenChange={(open) => {
                         if (!editableFields.phone) {
                           setPopoverOpen(prev => ({ ...prev, phone: open }))
@@ -423,16 +467,19 @@ export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsMod
                         <PopoverTrigger asChild>
                           <input
                             type="tel"
-                            className={`w-full pb-2 border-b ${
-                              editableFields.phone ? 'border-black' : 'border-gray-200'
-                            } focus:border-black outline-none transition-colors bg-transparent cursor-pointer ${
-                              editableFields.phone ? 'text-gray-900' : 'text-gray-500'
-                            }`}
+                            className={cn(
+                              "w-full px-3 py-2 rounded-lg",
+                              "border border-gray-200 bg-white",
+                              "focus:outline-none focus:border-gray-300",
+                              "transition-colors duration-200",
+                              "placeholder:text-gray-400",
+                              "text-sm",
+                              editableFields.phone ? "text-gray-900" : "text-gray-500"
+                            )}
                             value={formData.phone}
                             onChange={(e) => handleInputChange('phone', e.target.value)}
                             readOnly={!editableFields.phone}
-                            onBlur={() => handleClosePopup('phone')}
-                            placeholder="Ingrese número de teléfono"
+                            placeholder="Ingrese el número de teléfono"
                           />
                         </PopoverTrigger>
                         {!editableFields.phone && (
@@ -462,30 +509,35 @@ export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsMod
                       </Popover>
                     </div>
 
-                    {/* Campo DNI */}
+                    {/* Campo Email */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">DNI</label>
-                      <Popover open={popoverOpen.dni} onOpenChange={(open) => {
-                        if (!editableFields.dni) {
-                          setPopoverOpen(prev => ({ ...prev, dni: open }))
+                      <label className="text-sm font-medium text-gray-700">
+                        Email
+                      </label>
+                      <Popover open={popoverOpen.email} onOpenChange={(open) => {
+                        if (!editableFields.email) {
+                          setPopoverOpen(prev => ({ ...prev, email: open }))
                         }
                       }}>
                         <PopoverTrigger asChild>
                           <input
-                            type="text"
-                            className={`w-full pb-2 border-b ${
-                              editableFields.dni ? 'border-black' : 'border-gray-200'
-                            } focus:border-black outline-none transition-colors bg-transparent cursor-pointer ${
-                              editableFields.dni ? 'text-gray-900' : 'text-gray-500'
-                            }`}
-                            value={formData.dni}
-                            onChange={(e) => handleInputChange('dni', e.target.value)}
-                            readOnly={!editableFields.dni}
-                            onBlur={() => handleClosePopup('dni')}
-                            placeholder="Ingrese DNI"
+                            type="email"
+                            className={cn(
+                              "w-full px-3 py-2 rounded-lg",
+                              "border border-gray-200 bg-white",
+                              "focus:outline-none focus:border-gray-300",
+                              "transition-colors duration-200",
+                              "placeholder:text-gray-400",
+                              "text-sm",
+                              editableFields.email ? "text-gray-900" : "text-gray-500"
+                            )}
+                            value={formData.email}
+                            onChange={(e) => handleInputChange('email', e.target.value)}
+                            readOnly={!editableFields.email}
+                            placeholder="Ingrese el email"
                           />
                         </PopoverTrigger>
-                        {!editableFields.dni && (
+                        {!editableFields.email && (
                           <PopoverContent className="w-auto p-3">
                             <div className="text-sm">
                               <p>¿Desea modificar este campo?</p>
@@ -493,15 +545,15 @@ export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsMod
                                 <button 
                                   className="px-2 py-1 text-xs bg-gray-100 rounded-md hover:bg-gray-200"
                                   onClick={() => {
-                                    handleEditRequest('dni')
-                                    handlePopoverClose('dni')
+                                    handleEditRequest('email')
+                                    handlePopoverClose('email')
                                   }}
                                 >
                                   Sí
                                 </button>
                                 <button 
                                   className="px-2 py-1 text-xs bg-black text-white rounded-md hover:bg-gray-800"
-                                  onClick={() => handlePopoverClose('dni')}
+                                  onClick={() => handlePopoverClose('email')}
                                 >
                                   No
                                 </button>
@@ -514,7 +566,9 @@ export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsMod
 
                     {/* Campo Género */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Género</label>
+                      <label className="text-sm font-medium text-gray-700">
+                        Género
+                      </label>
                       <Popover open={popoverOpen.gender} onOpenChange={(open) => {
                         if (!editableFields.gender) {
                           setPopoverOpen(prev => ({ ...prev, gender: open }))
@@ -522,20 +576,20 @@ export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsMod
                       }}>
                         <PopoverTrigger asChild>
                           <div 
-                            className={`w-full pb-2 border-b ${
-                              editableFields.gender ? 'border-black' : 'border-gray-200'
-                            } focus-within:border-black transition-colors cursor-pointer`}
-                            onClick={() => {
-                              if (!editableFields.gender) {
-                                setPopoverOpen(prev => ({ ...prev, gender: true }))
-                              }
-                            }}
+                            className={cn(
+                              "w-full px-3 py-2 rounded-lg",
+                              "border border-gray-200 bg-white",
+                              "focus-within:border-gray-300",
+                              "transition-colors duration-200",
+                              "cursor-pointer"
+                            )}
                           >
-                            <div className="w-full text-left flex items-center justify-between py-1">
-                              <span className={`text-sm ${
-                                editableFields.gender ? 'text-gray-900' : 'text-gray-500'
-                              }`}>
-                                {selectedGender || "Seleccione un género"}
+                            <div className="flex items-center justify-between">
+                              <span className={cn(
+                                "text-sm",
+                                editableFields.gender ? "text-gray-900" : "text-gray-500"
+                              )}>
+                                {selectedGender || "Seleccione el género"}
                               </span>
                               <IconChevronDown className="h-4 w-4 text-gray-500" />
                             </div>
@@ -582,14 +636,59 @@ export function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsMod
                       )}
                     </div>
 
-                    {/* Campo Nota */}
+                    {/* Campo Notas */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Nota</label>
-                      <textarea
-                        className="w-full p-2 border rounded-md focus:border-black outline-none transition-colors bg-transparent resize-none text-gray-500 placeholder-gray-400"
-                        rows={4}
-                        placeholder="Agregar una nota..."
-                      />
+                      <label className="text-sm font-medium text-gray-700">
+                        Notas
+                      </label>
+                      <Popover open={popoverOpen.notes} onOpenChange={(open) => {
+                        if (!editableFields.notes) {
+                          setPopoverOpen(prev => ({ ...prev, notes: open }))
+                        }
+                      }}>
+                        <PopoverTrigger asChild>
+                          <textarea
+                            className={cn(
+                              "w-full px-3 py-2 rounded-lg",
+                              "border border-gray-200 bg-white",
+                              "focus:outline-none focus:border-gray-300",
+                              "transition-colors duration-200",
+                              "placeholder:text-gray-400",
+                              "text-sm",
+                              "min-h-[100px] resize-none",
+                              editableFields.notes ? "text-gray-900" : "text-gray-500"
+                            )}
+                            value={formData.notes}
+                            onChange={(e) => handleInputChange('notes', e.target.value)}
+                            readOnly={!editableFields.notes}
+                            placeholder="Agregue notas adicionales..."
+                          />
+                        </PopoverTrigger>
+                        {!editableFields.notes && (
+                          <PopoverContent className="w-auto p-3">
+                            <div className="text-sm">
+                              <p>¿Desea modificar este campo?</p>
+                              <div className="flex justify-end gap-2 mt-2">
+                                <button 
+                                  className="px-2 py-1 text-xs bg-gray-100 rounded-md hover:bg-gray-200"
+                                  onClick={() => {
+                                    handleEditRequest('notes')
+                                    handlePopoverClose('notes')
+                                  }}
+                                >
+                                  Sí
+                                </button>
+                                <button 
+                                  className="px-2 py-1 text-xs bg-black text-white rounded-md hover:bg-gray-800"
+                                  onClick={() => handlePopoverClose('notes')}
+                                >
+                                  No
+                                </button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        )}
+                      </Popover>
                     </div>
                   </div>
 

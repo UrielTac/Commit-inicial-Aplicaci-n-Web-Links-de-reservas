@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
+import { IconClock } from "@tabler/icons-react"
 
 interface TimeSelectorProps {
   value: string
@@ -38,21 +39,24 @@ export function TimeSelector({ value, onChange, className }: TimeSelectorProps) 
 
   return (
     <div className="relative">
-      <input
-        type="text"
-        value={value}
-        readOnly
-        onClick={(e) => {
-          e.stopPropagation()
-          setIsOpen(!isOpen)
-        }}
-        className={cn(
-          "w-full px-3 py-2 rounded-lg border bg-white cursor-pointer",
-          "focus:outline-none focus:border-gray-300",
-          "transition-colors duration-200",
-          className
-        )}
-      />
+      <div className="relative">
+        <input
+          type="text"
+          value={value}
+          readOnly
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsOpen(!isOpen)
+          }}
+          className={cn(
+            "w-full px-3 pr-8 py-2 rounded-lg border bg-white cursor-pointer",
+            "focus:outline-none focus:border-gray-300",
+            "transition-colors duration-200",
+            className
+          )}
+        />
+        <IconClock className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+      </div>
 
       {isOpen && (
         <div 

@@ -13,6 +13,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Menu, Settings, LogOut, ChevronUp, ChevronDown } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useBranches } from '@/hooks/useBranches'
+import { Branch } from '@/types/branch'
+import { IconLoader } from '@tabler/icons-react'
+import { ConfirmBranchDialog } from "@/components/ui/confirm-branch-dialog"
+import { useBranchContext } from '@/contexts/BranchContext'
+
+// Función auxiliar para obtener las iniciales
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -39,64 +55,125 @@ const menuItems = [
   }
 ]
 
-const branches = [
-  {
-    id: 1,
-    name: "Sede Principal",
-    shortName: "SP"
-  },
-  {
-    id: 2,
-    name: "Sede Norte",
-    shortName: "SN"
-  },
-  {
-    id: 3,
-    name: "Sede Sur",
-    shortName: "SS"
-  }
-]
-
 function SidebarHeader() {
+  const { 
+    branches, 
+    isLoading, 
+    isError,
+    currentBranch,
+    setCurrentBranch
+  } = useBranches()
+  const [branchToSwitch, setBranchToSwitch] = useState<Branch | null>(null)
+  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 })
+
+  const handleBranchSelection = async (branch: Branch, event: React.MouseEvent) => {
+    if (currentBranch?.id === branch.id) return
+    
+    const button = event.currentTarget as HTMLElement
+    const rect = button.getBoundingClientRect()
+    
+    setPopupPosition({
+      x: rect.right + 10,
+      y: rect.top - 10
+    })
+    
+    setBranchToSwitch(branch)
+  }
+
+  const handleConfirmBranchChange = async () => {
+    if (branchToSwitch) {
+      await setCurrentBranch(branchToSwitch)
+      setBranchToSwitch(null)
+    }
+  }
+
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <div className="flex items-center gap-2 p-4 cursor-pointer hover:bg-accent rounded-lg transition-colors">
-          <div className="h-10 w-10 rounded-lg bg-black flex items-center justify-center">
-            <span className="text-white font-bold">VE</span>
+    <>
+      <Popover>
+        <PopoverTrigger asChild>
+          <div className="flex items-center gap-2 p-4 cursor-pointer hover:bg-accent rounded-lg transition-colors">
+            <div className="h-10 w-10 rounded-lg bg-black flex items-center justify-center">
+              <span className="text-white font-bold">
+                {isLoading ? (
+                  <IconLoader className="h-4 w-4 animate-spin" />
+                ) : isError ? (
+                  'ERR'
+                ) : currentBranch ? (
+                  getInitials(currentBranch.name)
+                ) : (
+                  'N/A'
+                )}
+              </span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold">Sucursal</h3>
+              <p className="text-sm text-muted-foreground">
+                {isLoading ? (
+                  'Cargando...'
+                ) : isError ? (
+                  'Error al cargar sucursales'
+                ) : currentBranch?.name || (
+                  'Sin sucursal'
+                )}
+              </p>
+            </div>
+            <div className="flex flex-col -space-y-1">
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </div>
           </div>
-          <div className="flex-1">
-            <h3 className="font-semibold">Sucursal</h3>
-            <p className="text-sm text-muted-foreground">Sede Principal</p>
-          </div>
-          <div className="flex flex-col -space-y-1">
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          </div>
-        </div>
-      </PopoverTrigger>
-      <PopoverContent className="w-[240px] p-2" align="start" side="right">
-        <div className="space-y-2">
-          {branches.map((branch) => (
-            <button
-              key={branch.id}
-              className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent text-sm"
-            >
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-xs font-medium">{branch.shortName}</span>
+        </PopoverTrigger>
+        <PopoverContent className="w-[240px] p-2" align="start" side="right">
+          <div className="space-y-2">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <IconLoader className="h-5 w-5 animate-spin text-gray-500" />
               </div>
-              <span className="font-medium">{branch.name}</span>
-            </button>
-          ))}
-          <div className="border-t my-2" />
-          <button
-            className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-accent text-sm text-muted-foreground"
-          >
-            <span>Administrar sucursales</span>
-          </button>
-        </div>
-      </PopoverContent>
-    </Popover>
+            ) : isError ? (
+              <div className="text-sm text-red-500 text-center py-4">
+                Error: {error instanceof Error ? error.message : 'Error desconocido'}
+              </div>
+            ) : branches.length === 0 ? (
+              <div className="text-sm text-gray-500 text-center py-4">
+                No hay sedes disponibles
+              </div>
+            ) : (
+              branches.map((branch) => (
+                <button
+                  key={branch.id}
+                  onClick={(e) => handleBranchSelection(branch, e)}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent text-sm",
+                    currentBranch?.id === branch.id && "bg-accent"
+                  )}
+                >
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-xs font-medium">{getInitials(branch.name)}</span>
+                  </div>
+                  <span className="font-medium">{branch.name}</span>
+                </button>
+              ))
+            )}
+            <div className="border-t my-2" />
+            <Link
+              href="/dashboard/settings"
+              className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-accent text-sm text-muted-foreground"
+            >
+              <span>Administrar sucursales</span>
+            </Link>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      <ConfirmBranchDialog
+        isOpen={!!branchToSwitch}
+        onClose={() => setBranchToSwitch(null)}
+        onConfirm={handleConfirmBranchChange}
+        currentBranch={currentBranch}
+        newBranch={branchToSwitch}
+        position={popupPosition}
+      />
+    </>
   )
 }
 
@@ -157,6 +234,13 @@ function MobileNav() {
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
+  const { currentBranch, setCurrentBranch } = useBranchContext()
+  const { data: branches } = useBranches()
+
+  const handleBranchSelect = (branch: Branch) => {
+    console.log('🔄 Seleccionando sede:', branch)
+    setCurrentBranch(branch)
+  }
 
   return (
     <Sheet>

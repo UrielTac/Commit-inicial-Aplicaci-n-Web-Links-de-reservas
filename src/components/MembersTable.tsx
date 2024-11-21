@@ -23,24 +23,26 @@ import { MemberDetailsModal } from "@/components/MemberDetailsModal"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
+import { useBranchContext } from "@/contexts/BranchContext"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { memberService } from "@/services/supabase"
+import { toast } from "sonner"
 
 interface Member {
-  name: string
+  id: string
+  first_name: string
+  last_name: string
   email: string
+  phone?: string
+  gender?: string
+  notes?: string
   status: string
-  date: string
-  gender: string
-  reservations?: number
-  membershipDetails?: {
-    startDate: string
-    price: number
-    lastPayment: string
-    nextPayment: string
-  }
-  reservationStats: {
-    future: number
-    past: number
-    cancelled: number
+  created_at: string
+  updated_at: string
+  reservation_stats?: {
+    future_reservations: number
+    past_reservations: number
+    cancelled_reservations: number
   }
 }
 
@@ -302,56 +304,79 @@ const allMembers = [...initialMembers, ...additionalMembers].map(member => ({
 
 // Definir la configuración de columnas disponibles
 interface ColumnConfig {
-  id: string
+  id: keyof typeof columnVisibility
   title: string
   isVisible: boolean
 }
 
+// Actualizar la función para mostrar el nombre completo y traducir el género
+const formatGender = (gender: string | undefined) => {
+  const genderMap = {
+    'male': 'Hombre',
+    'female': 'Mujer',
+    'not_specified': 'Prefiero no decirlo'
+  }
+  return gender ? genderMap[gender as keyof typeof genderMap] || gender : '-'
+}
+
+// Función para formatear la fecha
+const formatDate = (dateString: string) => {
+  try {
+    return format(new Date(dateString), 'dd MMM yyyy', { locale: es })
+  } catch (error) {
+    console.error('Error al formatear fecha:', error)
+    return 'Fecha no válida'
+  }
+}
+
 export function MembersTable() {
-  const [membersData, setMembersData] = useState<Member[]>(allMembers)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [isNewMemberOpen, setIsNewMemberOpen] = useState(false) // Agregado el estado para el formulario
-  const itemsPerPage = 10
+  const { currentBranch } = useBranchContext()
+  const queryClient = useQueryClient()
+  const [isNewMemberOpen, setIsNewMemberOpen] = useState(false)
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null)
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
+  
+  // Agregar estado para la visibilidad de columnas
+  const [columnVisibility, setColumnVisibility] = useState({
+    name: true,
+    email: true,
+    reservations: true,
+    date: true,
+    status: true
+  })
+
+  // Estados para filtros y paginación
   const [filters, setFilters] = useState({
     search: "",
     sortByReservations: false
   })
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
-    name: true,
-    email: true,
-    date: true,
-    reservations: true,
-  })
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null)
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
 
-  // Configuración de columnas disponibles
-  const availableColumns: ColumnConfig[] = [
-    { id: 'name', title: 'Nombre', isVisible: columnVisibility.name },
-    { id: 'email', title: 'Email', isVisible: columnVisibility.email },
-    { id: 'reservations', title: 'Reservaciones', isVisible: columnVisibility.reservations },
-    { id: 'date', title: 'Fecha', isVisible: columnVisibility.date },
-  ]
+  // Query para obtener miembros
+  const { data: members = [], isLoading } = useQuery({
+    queryKey: ['members'],
+    queryFn: () => memberService.getMembers(),
+    enabled: true
+  })
 
   // Función para filtrar miembros
   const getFilteredMembers = () => {
-    let filtered = membersData.filter(member => 
-      filters.search === "" || 
-      member.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-      member.email.toLowerCase().includes(filters.search.toLowerCase())
-    )
-
-    // Ordenar por número de reservaciones si está activado
-    if (filters.sortByReservations) {
-      filtered = filtered.sort((a, b) => 
-        (b.reservations || 0) - (a.reservations || 0)
+    let filtered = [...members]
+    
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase()
+      filtered = filtered.filter(member => 
+        member.first_name.toLowerCase().includes(searchLower) ||
+        member.last_name.toLowerCase().includes(searchLower) ||
+        member.email.toLowerCase().includes(searchLower)
       )
     }
 
     return filtered
   }
 
-  // Obtener los miembros de la página actual (ahora usando el filtro)
+  // Función para obtener miembros de la página actual
   const getCurrentPageMembers = () => {
     const filteredMembers = getFilteredMembers()
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -359,24 +384,34 @@ export function MembersTable() {
     return filteredMembers.slice(startIndex, endIndex)
   }
 
-  // Actualizar el total de páginas basado en los resultados filtrados
+  // Calcular número total de páginas
   const totalPages = Math.ceil(getFilteredMembers().length / itemsPerPage)
 
-  // Resetear la página actual cuando cambian los filtros
+  // Resetear página cuando cambian los filtros
   useEffect(() => {
     setCurrentPage(1)
   }, [filters])
 
-  const handleStatusChange = (index: number, newStatus: string) => {
-    setMembersData(prevData => {
-      const newData = [...prevData]
-      newData[index] = {
-        ...newData[index],
-        status: newStatus
-      }
-      return newData
-    })
-  }
+  // Mutation para eliminar miembro
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => memberService.deleteMember(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['members', currentBranch?.id])
+      toast.success('Miembro eliminado correctamente')
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al eliminar el miembro')
+    }
+  })
+
+  // Configuración de columnas disponibles
+  const availableColumns: ColumnConfig[] = [
+    { id: 'name', title: 'Nombre', isVisible: columnVisibility.name },
+    { id: 'email', title: 'Email', isVisible: columnVisibility.email },
+    { id: 'reservations', title: 'Reservaciones', isVisible: columnVisibility.reservations },
+    { id: 'date', title: 'Fecha', isVisible: columnVisibility.date },
+    { id: 'status', title: 'Estado', isVisible: columnVisibility.status }
+  ]
 
   // Función para manejar el clic en una fila
   const handleRowClick = (member: Member) => {
@@ -425,7 +460,19 @@ export function MembersTable() {
                       ...prev,
                       search: e.target.value
                     }))}
-                    className="w-full focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-black focus-visible:ring-black"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-lg",
+                      "border border-gray-200 bg-white",
+                      "focus:outline-none focus:border-gray-300",
+                      "transition-colors duration-200",
+                      "placeholder:text-gray-400",
+                      "text-sm",
+                      "focus-visible:ring-0 focus-visible:ring-offset-0",
+                      "focus:ring-0 focus:ring-offset-0",
+                      "focus-visible:border-gray-300",
+                      "focus:border-gray-300",
+                      "ring-0"
+                    )}
                   />
                 </div>
 
@@ -520,7 +567,7 @@ export function MembersTable() {
               )}
               {columnVisibility.date && (
                 <th className="w-[15%] px-6 py-3 border-b border-gray-200 bg-white text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Fecha
+                  Fecha de Registro
                 </th>
               )}
               <th className="w-[10%] px-4 py-3 border-b border-gray-200 bg-white"></th>
@@ -529,7 +576,7 @@ export function MembersTable() {
           <tbody className="divide-y divide-gray-100">
             {getCurrentPageMembers().map((member, index) => (
               <tr 
-                key={index} 
+                key={member.id} 
                 className="hover:bg-gray-50 cursor-pointer"
                 onClick={() => handleRowClick(member)}
               >
@@ -539,7 +586,9 @@ export function MembersTable() {
                       <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
                         <IconUser className="h-5 w-5 text-gray-500" />
                       </div>
-                      <span className="truncate text-sm">{member.name}</span>
+                      <span className="truncate text-sm">
+                        {`${member.first_name} ${member.last_name}`}
+                      </span>
                     </div>
                   </td>
                 )}
@@ -556,9 +605,9 @@ export function MembersTable() {
                   </td>
                 )}
                 {columnVisibility.date && (
-                  <td className="px-6 py-4 border-b border-gray-200 text-sm h-16 align-middle text-center">
-                    <span className="text-gray-500">
-                      {member.date}
+                  <td className="px-6 py-4 border-b border-gray-200 text-sm text-gray-500 h-16 align-middle text-center">
+                    <span className="truncate block">
+                      {formatDate(member.created_at)}
                     </span>
                   </td>
                 )}

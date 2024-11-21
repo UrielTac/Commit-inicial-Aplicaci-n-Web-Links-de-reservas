@@ -4,10 +4,13 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "framer-motion"
 import { useState, useEffect } from "react"
-import { IconChevronRight, IconMapPin, IconPhone, IconUser, IconClock } from "@tabler/icons-react"
+import { IconChevronRight, IconMapPin, IconPhone, IconUser, IconClock, IconTrash, IconPlus, IconLoader } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { TimeSelect } from "@/components/ui/time-select"
+import { TimeSelector } from "@/components/ui/time-selector"
+import { Button } from "@/components/ui/button"
+import { toast } from "@/components/ui/use-toast"
 
 interface NewBranchModalProps {
   isOpen: boolean
@@ -17,11 +20,15 @@ interface NewBranchModalProps {
 
 type ModalStep = 'details' | 'schedule'
 
+interface TimeRange {
+  openTime: string
+  closeTime: string
+}
+
 interface Schedule {
   day: string
   isOpen: boolean
-  openTime: string
-  closeTime: string
+  timeRanges: TimeRange[]
 }
 
 interface BranchFormData {
@@ -56,9 +63,17 @@ interface BranchSchedulePreset {
   schedule: Schedule[]
 }
 
+// Función auxiliar para formatear los rangos de horario
+function formatTimeRanges(timeRanges: TimeRange[]): string {
+  return timeRanges
+    .map(range => `${range.openTime} - ${range.closeTime}`)
+    .join(' / ');
+}
+
 export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps) {
   const [mounted, setMounted] = useState(false)
   const [currentStep, setCurrentStep] = useState<ModalStep>('details')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   const [formData, setFormData] = useState<BranchFormData>({
     name: '',
@@ -69,8 +84,10 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
     schedule: DAYS.map(day => ({
       day: day.id,
       isOpen: true,
-      openTime: '08:00',
-      closeTime: '22:00'
+      timeRanges: [{
+        openTime: '08:00',
+        closeTime: '22:00'
+      }]
     }))
   })
 
@@ -82,8 +99,10 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
       schedule: DAYS.map(day => ({
         day: day.id,
         isOpen: true,
-        openTime: '09:00',
-        closeTime: '20:00'
+        timeRanges: [{
+          openTime: '09:00',
+          closeTime: '20:00'
+        }]
       }))
     },
     {
@@ -92,8 +111,10 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
       schedule: DAYS.map(day => ({
         day: day.id,
         isOpen: true,
-        openTime: '07:00',
-        closeTime: '23:00'
+        timeRanges: [{
+          openTime: '07:00',
+          closeTime: '23:00'
+        }]
       }))
     }
   ])
@@ -115,8 +136,10 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
         schedule: DAYS.map(day => ({
           day: day.id,
           isOpen: true,
-          openTime: '08:00',
-          closeTime: '22:00'
+          timeRanges: [{
+            openTime: '08:00',
+            closeTime: '22:00'
+          }]
         }))
       })
     }
@@ -128,8 +151,7 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
         setCurrentStep('schedule')
       }
     } else {
-      onSave(formData)
-      onClose()
+      handleSave()
     }
   }
 
@@ -160,6 +182,26 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
         return 'Configure los horarios de apertura y cierre'
       default:
         return ''
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      setIsSubmitting(true)
+      await onSave(formData)
+      toast({
+        title: "Sede creada",
+        description: "La sede se ha creado correctamente",
+      })
+      onClose()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo crear la sede. Por favor, inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -363,7 +405,7 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
                                     "text-xs",
                                     isSelected ? "text-gray-900" : "text-gray-500"
                                   )}>
-                                    {branch.schedule[0].openTime} - {branch.schedule[0].closeTime}
+                                    {branch.schedule[0].timeRanges[0].openTime} - {branch.schedule[0].timeRanges[0].closeTime}
                                   </p>
                                 </div>
                               </button>
@@ -378,8 +420,10 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
                                 schedule: DAYS.map(day => ({
                                   day: day.id,
                                   isOpen: true,
-                                  openTime: '08:00',
-                                  closeTime: '22:00'
+                                  timeRanges: [{
+                                    openTime: '08:00',
+                                    closeTime: '22:00'
+                                  }]
                                 }))
                               }))
                             }}
@@ -388,8 +432,10 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
                               JSON.stringify(formData.schedule) === JSON.stringify(DAYS.map(day => ({
                                 day: day.id,
                                 isOpen: true,
-                                openTime: '08:00',
-                                closeTime: '22:00'
+                                timeRanges: [{
+                                  openTime: '08:00',
+                                  closeTime: '22:00'
+                                }]
                               })))
                                 ? "border-black bg-gray-50"
                                 : "border-gray-300 hover:border-gray-400 hover:bg-gray-50/50"
@@ -403,8 +449,10 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
                                   JSON.stringify(formData.schedule) === JSON.stringify(DAYS.map(day => ({
                                     day: day.id,
                                     isOpen: true,
-                                    openTime: '08:00',
-                                    closeTime: '22:00'
+                                    timeRanges: [{
+                                      openTime: '08:00',
+                                      closeTime: '22:00'
+                                    }]
                                   })))
                                     ? "bg-black scale-110"
                                     : "bg-gray-300"
@@ -470,9 +518,16 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
                                     {day.label}
                                   </span>
                                 </div>
+                                
+                                {/* Resumen de horarios movido a la derecha */}
                                 {formData.schedule[index].isOpen && (
                                   <span className="text-xs text-gray-500">
-                                    {formData.schedule[index].openTime} - {formData.schedule[index].closeTime}
+                                    {formData.schedule[index].timeRanges.map((range, i) => (
+                                      <span key={i}>
+                                        {range.openTime} - {range.closeTime}
+                                        {i < formData.schedule[index].timeRanges.length - 1 ? ' / ' : ''}
+                                      </span>
+                                    ))}
                                   </span>
                                 )}
                               </div>
@@ -482,29 +537,74 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
                                   initial={{ opacity: 0, height: 0 }}
                                   animate={{ opacity: 1, height: 'auto' }}
                                   exit={{ opacity: 0, height: 0 }}
-                                  className="mt-4 grid grid-cols-2 gap-4"
+                                  className="mt-4 space-y-3"
                                 >
-                                  <TimeSelect
-                                    label="Apertura"
-                                    value={formData.schedule[index].openTime}
-                                    onValueChange={(value) => {
+                                  {formData.schedule[index].timeRanges.map((timeRange, rangeIndex) => (
+                                    <div key={rangeIndex} className="flex items-center gap-3">
+                                      <div className="flex-1 grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                          <label className="text-xs text-gray-500">Apertura</label>
+                                          <TimeSelector
+                                            value={timeRange.openTime}
+                                            onChange={(time) => {
+                                              const newSchedule = [...formData.schedule]
+                                              newSchedule[index].timeRanges[rangeIndex].openTime = time
+                                              setFormData(prev => ({ ...prev, schedule: newSchedule }))
+                                            }}
+                                            className="text-sm"
+                                          />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <label className="text-xs text-gray-500">Cierre</label>
+                                          <TimeSelector
+                                            value={timeRange.closeTime}
+                                            onChange={(time) => {
+                                              const newSchedule = [...formData.schedule]
+                                              newSchedule[index].timeRanges[rangeIndex].closeTime = time
+                                              setFormData(prev => ({ ...prev, schedule: newSchedule }))
+                                            }}
+                                            className="text-sm"
+                                          />
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Botón para eliminar rango si hay más de uno */}
+                                      {formData.schedule[index].timeRanges.length > 1 && (
+                                        <div className="flex items-center h-[34px] mt-[22px]">
+                                          <button
+                                            onClick={() => {
+                                              const newSchedule = [...formData.schedule]
+                                              newSchedule[index].timeRanges = newSchedule[index].timeRanges.filter(
+                                                (_, i) => i !== rangeIndex
+                                              )
+                                              setFormData(prev => ({ ...prev, schedule: newSchedule }))
+                                            }}
+                                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                          >
+                                            <IconTrash className="h-4 w-4" />
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+
+                                  {/* Botón para agregar nuevo rango */}
+                                  <button
+                                    onClick={() => {
                                       const newSchedule = [...formData.schedule]
-                                      newSchedule[index].openTime = value
+                                      newSchedule[index].timeRanges.push({
+                                        openTime: '08:00',
+                                        closeTime: '22:00'
+                                      })
                                       setFormData(prev => ({ ...prev, schedule: newSchedule }))
                                     }}
-                                    options={TIME_OPTIONS}
-                                  />
-                                  
-                                  <TimeSelect
-                                    label="Cierre"
-                                    value={formData.schedule[index].closeTime}
-                                    onValueChange={(value) => {
-                                      const newSchedule = [...formData.schedule]
-                                      newSchedule[index].closeTime = value
-                                      setFormData(prev => ({ ...prev, schedule: newSchedule }))
-                                    }}
-                                    options={TIME_OPTIONS}
-                                  />
+                                    className="mt-2 w-full py-2 px-3 text-sm text-gray-500 border border-dashed 
+                                             rounded-lg hover:border-gray-400 hover:text-gray-700 
+                                             transition-colors flex items-center justify-center gap-2"
+                                  >
+                                    <IconPlus className="h-4 w-4" />
+                                    Agregar rango horario
+                                  </button>
                                 </motion.div>
                               )}
                             </motion.div>
@@ -531,11 +631,9 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
                   >
                     {currentStep === 'details' ? 'Cancelar' : 'Volver'}
                   </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleContinue}
-                    disabled={currentStep === 'details' && (!formData.name || !formData.address || !formData.phone)}
+                  <Button 
+                    onClick={currentStep === 'details' ? handleContinue : handleSave}
+                    disabled={isSubmitting || (currentStep === 'details' && (!formData.name || !formData.address || !formData.phone))}
                     className={cn(
                       "flex-1 px-4 py-2 rounded-md transition-colors flex items-center justify-center gap-2",
                       currentStep === 'details'
@@ -545,9 +643,18 @@ export function NewBranchModal({ isOpen, onClose, onSave }: NewBranchModalProps)
                         : "bg-black text-white hover:bg-gray-800"
                     )}
                   >
-                    <span>{currentStep === 'details' ? 'Continuar' : 'Guardar'}</span>
-                    {currentStep === 'details' && <IconChevronRight className="h-4 w-4" />}
-                  </motion.button>
+                    {isSubmitting ? (
+                      <>
+                        <IconLoader className="h-4 w-4 animate-spin" />
+                        <span>Guardando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{currentStep === 'details' ? 'Continuar' : 'Guardar'}</span>
+                        {currentStep === 'details' && <IconChevronRight className="h-4 w-4" />}
+                      </>
+                    )}
+                  </Button>
                 </div>
               </motion.div>
             </div>

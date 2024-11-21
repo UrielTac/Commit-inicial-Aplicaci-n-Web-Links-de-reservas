@@ -88,6 +88,7 @@ export function ConfigurationMenu({
       style={{
         top: position.y + 8,
         left: position.x - 320 + 40,
+        zIndex: 10000
       }}
     >
       <div 

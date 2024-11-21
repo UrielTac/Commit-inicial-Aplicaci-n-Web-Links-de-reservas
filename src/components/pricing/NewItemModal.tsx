@@ -16,12 +16,14 @@ import { Input } from "@/components/ui/input"
 import { IconChevronDown, IconTrash, IconPlus } from "@tabler/icons-react"
 import { type Item } from '@/types/items'
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { SingleSelect } from "@/components/ui/single-select"
 
 // Definimos las opciones de tipo de artículo
 const itemTypeOptions = [
-  { value: 'equipment', label: 'Equipamiento' },
-  { value: 'accessory', label: 'Accesorio' },
-  { value: 'consumable', label: 'Consumible' }
+  { id: 'equipment', name: 'Equipamiento' },
+  { id: 'accessory', name: 'Accesorio' },
+  { id: 'consumable', name: 'Consumible' }
 ] as const
 
 // Opciones de duración en minutos
@@ -151,15 +153,24 @@ export function NewItemModal({
   const renderPricingSection = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium">Precios por duración</label>
+        <label className="text-sm font-medium text-gray-700">Precios por duración</label>
         <Button
           onClick={handleAddPrice}
           variant="outline"
           size="sm"
-          className="flex items-center gap-2"
+          className={cn(
+            "h-8 px-3",
+            "border border-gray-200",
+            "text-gray-600 text-xs",
+            "bg-white hover:bg-gray-50",
+            "transition-all duration-200",
+            "flex items-center gap-1.5",
+            "shadow-sm",
+            "hover:border-gray-300"
+          )}
         >
-          <IconPlus className="h-4 w-4" />
-          <span>Agregar precio</span>
+          <IconPlus className="h-3.5 w-3.5" stroke={1.5} />
+          <span>Añadir precio</span>
         </Button>
       </div>
 
@@ -182,7 +193,17 @@ export function NewItemModal({
                   min="1"
                   value={price.duration}
                   onChange={(e) => handlePriceChange(index, 'duration', Number(e.target.value))}
-                  className="w-full h-9 px-3 rounded-md border border-gray-200 focus:border-black focus:ring-0 outline-none transition-colors bg-white"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    "border border-gray-200 bg-white",
+                    "focus:outline-none focus:border-gray-300",
+                    "transition-colors duration-200",
+                    "placeholder:text-gray-400",
+                    "text-sm",
+                    "[appearance:textfield]",
+                    "[&::-webkit-outer-spin-button]:appearance-none",
+                    "[&::-webkit-inner-spin-button]:appearance-none"
+                  )}
                 />
               </div>
               <div className="space-y-1">
@@ -195,7 +216,17 @@ export function NewItemModal({
                   step="0.01"
                   value={price.price}
                   onChange={(e) => handlePriceChange(index, 'price', Number(e.target.value))}
-                  className="w-full h-9 px-3 rounded-md border border-gray-200 focus:border-black focus:ring-0 outline-none transition-colors bg-white"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    "border border-gray-200 bg-white",
+                    "focus:outline-none focus:border-gray-300",
+                    "transition-colors duration-200",
+                    "placeholder:text-gray-400",
+                    "text-sm",
+                    "[appearance:textfield]",
+                    "[&::-webkit-outer-spin-button]:appearance-none",
+                    "[&::-webkit-inner-spin-button]:appearance-none"
+                  )}
                 />
               </div>
             </div>
@@ -203,10 +234,16 @@ export function NewItemModal({
               variant="ghost"
               size="icon"
               onClick={() => handleRemovePrice(index)}
-              className="h-9 w-9 text-gray-500 hover:text-red-500 hover:bg-red-50"
+              className={cn(
+                "h-9 w-9",
+                "text-gray-400 hover:text-red-500",
+                "hover:bg-red-50",
+                "transition-colors duration-200",
+                "rounded-lg"
+              )}
               disabled={formData.prices.length === 1}
             >
-              <IconTrash className="h-4 w-4" />
+              <IconTrash className="h-4 w-4" stroke={1.5} />
             </Button>
           </motion.div>
         ))}
@@ -307,41 +344,46 @@ export function NewItemModal({
                 <div className="p-6 space-y-6">
                   {/* Nombre del artículo */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Nombre del artículo</label>
+                    <label className="text-sm font-medium text-gray-700">
+                      Nombre del artículo
+                    </label>
                     <input
                       type="text"
                       placeholder="Ej: Raqueta Pro"
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full pb-2 border-b border-gray-300 focus:border-black outline-none transition-colors bg-transparent"
+                      className={cn(
+                        "w-full px-3 py-2 rounded-lg",
+                        "border border-gray-200 bg-white",
+                        "focus:outline-none focus:border-gray-300",
+                        "transition-colors duration-200",
+                        "placeholder:text-gray-400",
+                        "text-sm"
+                      )}
                     />
                   </div>
 
                   {/* Tipo de artículo */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Tipo de artículo</label>
-                    <Select
+                    <label className="text-sm font-medium text-gray-700">
+                      Tipo de artículo
+                    </label>
+                    <SingleSelect
                       value={formData.type}
-                      onValueChange={(value: 'equipment' | 'accessory' | 'consumable') => 
-                        setFormData(prev => ({ ...prev, type: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccione un tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {itemTypeOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(value) => setFormData(prev => ({ 
+                        ...prev, 
+                        type: value 
+                      }))}
+                      options={itemTypeOptions}
+                      placeholder="Seleccionar tipo de artículo"
+                    />
                   </div>
 
                   {/* Stock disponible */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Stock disponible</label>
+                    <label className="text-sm font-medium text-gray-700">
+                      Stock disponible
+                    </label>
                     <input
                       type="number"
                       min="0"
@@ -351,7 +393,17 @@ export function NewItemModal({
                         ...prev, 
                         stock: Number(e.target.value) 
                       }))}
-                      className="w-full pb-2 border-b border-gray-300 focus:border-black outline-none transition-colors bg-transparent"
+                      className={cn(
+                        "w-full px-3 py-2 rounded-lg",
+                        "border border-gray-200 bg-white",
+                        "focus:outline-none focus:border-gray-300",
+                        "transition-colors duration-200",
+                        "placeholder:text-gray-400",
+                        "text-sm",
+                        "[appearance:textfield]",
+                        "[&::-webkit-outer-spin-button]:appearance-none",
+                        "[&::-webkit-inner-spin-button]:appearance-none"
+                      )}
                     />
                   </div>
 
@@ -374,7 +426,9 @@ export function NewItemModal({
 
                     {formData.requiresDeposit && (
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Monto del depósito</label>
+                        <label className="text-sm font-medium text-gray-700">
+                          Monto del depósito
+                        </label>
                         <input
                           type="number"
                           min="0"
@@ -384,7 +438,17 @@ export function NewItemModal({
                             ...prev, 
                             depositAmount: Number(e.target.value) 
                           }))}
-                          className="w-full pb-2 border-b border-gray-300 focus:border-black outline-none transition-colors bg-transparent"
+                          className={cn(
+                            "w-full px-3 py-2 rounded-lg",
+                            "border border-gray-200 bg-white",
+                            "focus:outline-none focus:border-gray-300",
+                            "transition-colors duration-200",
+                            "placeholder:text-gray-400",
+                            "text-sm",
+                            "[appearance:textfield]",
+                            "[&::-webkit-outer-spin-button]:appearance-none",
+                            "[&::-webkit-inner-spin-button]:appearance-none"
+                          )}
                         />
                       </div>
                     )}

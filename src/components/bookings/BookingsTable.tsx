@@ -110,10 +110,10 @@ const bookings: Booking[] = [
 ]
 
 // Agregar nuevo tipo para las acciones del popup
-type PopupView = 'actions' | 'blocking' | 'clearing' | 'booking-type' | 'shift-info' | 'shift-details' | 'shift-payment' | 'class-info' | 'class-details' | 'class-payment'
+type PopupView = 'actions' | 'blocking' | 'shift-info' | 'shift-details' | 'shift-payment' | 'rentals'
 
 // Agregar tipo para los tipos de reserva
-type BookingType = 'shift' | 'class'
+type BookingType = 'shift'
 
 // Actualizar la interfaz GuestForm para incluir un ID
 interface GuestForm {
@@ -562,7 +562,15 @@ export function BookingsTable() {
     
     // Redondear al intervalo más cercano
     const roundedTime = roundToNearestInterval(minutesToTime(Math.round(exactMinutes)))
-    const nextIntervalTime = getNextIntervalTime(roundedTime)
+    
+    // Calcular el siguiente intervalo, considerando el límite de las 23:00
+    let nextIntervalTime = getNextIntervalTime(roundedTime)
+    const lastPossibleTime = "23:00"
+    
+    // Si el tiempo redondeado es el último intervalo, ajustar el final
+    if (timeToMinutes(roundedTime) >= timeToMinutes("22:45")) {
+      nextIntervalTime = lastPossibleTime
+    }
     
     const initialSelection: Selection = {
       selections: [{
@@ -661,16 +669,21 @@ export function BookingsTable() {
         Math.max(startCourtIndex, currentCourtIndex)
       ]
 
-      // Calcular la duración basada en el intervalo configurado
+      // Calcular la duración considerando el límite de las 23:00
       const timeDiff = Math.abs(currentMinutes - startMinutes)
       const intervals = Math.ceil(timeDiff / TIME_INTERVAL)
       const adjustedDuration = intervals * TIME_INTERVAL
 
       // Determinar el tiempo de inicio y fin
-      const [minTime, maxTime] = [
+      let [minTime, maxTime] = [
         Math.min(startMinutes, currentMinutes),
         Math.min(startMinutes, currentMinutes) + adjustedDuration
       ]
+
+      // Ajustar si se excede el límite de las 23:00
+      if (maxTime > timeToMinutes("23:00")) {
+        maxTime = timeToMinutes("23:00")
+      }
 
       const tempSelection = {
         selections: courts
@@ -679,13 +692,13 @@ export function BookingsTable() {
             courtId: court.id,
             startTime: minutesToTime(minTime),
             endTime: minutesToTime(maxTime),
-            slots: intervals
+            slots: Math.ceil((maxTime - minTime) / TIME_INTERVAL)
           })),
         startCourtId: selectionStartRef.current.courtId,
         endCourtId: courtId,
         startTime: minutesToTime(minTime),
         endTime: minutesToTime(maxTime),
-        slots: intervals
+        slots: Math.ceil((maxTime - minTime) / TIME_INTERVAL)
       }
 
       setSelection(tempSelection)
@@ -1388,7 +1401,7 @@ export function BookingsTable() {
 
       <div className="p-4 overflow-x-auto select-none">
         <div 
-          className="relative" 
+          className="booking-table-container relative" 
           ref={tableContainerRef}
           onClick={(e) => e.stopPropagation()}
         >
@@ -1494,7 +1507,8 @@ export function BookingsTable() {
                                 height: SUBSLOT_HEIGHT,
                                 position: 'relative',
                                 zIndex: isSelected ? 2000 : 'auto',
-                                border: 'none'
+                                border: 'none',
+                                paddingBottom: timeToMinutes(subSlot.time) >= timeToMinutes("22:45") ? "8px" : "0"
                               }}
                               onClick={(e) => {
                                 // Si hay una reserva confirmada, abrir el modal

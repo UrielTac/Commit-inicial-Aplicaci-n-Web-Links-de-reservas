@@ -59,8 +59,14 @@ export function DateSelector({ selectedDate, onDateChange, className }: DateSele
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 z-50">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-lg" style={{ width: '320px' }}>
+        <div 
+          className="absolute top-full right-0 mt-2"
+          style={{ zIndex: 10000 }}
+        >
+          <div 
+            className="bg-white rounded-lg border border-gray-200 shadow-lg" 
+            style={{ width: '320px' }}
+          >
             <CustomCalendar
               selected={selectedDate}
               onSelect={handleDateSelect}

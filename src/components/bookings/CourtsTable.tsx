@@ -1,74 +1,153 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { IconPlus } from "@tabler/icons-react"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { NewCourtModal } from "./NewCourtModal"
+import { courtService } from "@/services/courtService"
+import { useBranches } from "@/hooks/useBranches"
+import { toast } from "sonner"
+import type { Court } from "@/types/court"
+import { cn } from "@/lib/utils"
 
-type SurfaceType = 'crystal' | 'synthetic' | 'clay' | 'grass' | 'rubber' | 'concrete' | 'panoramic' | 'premium'
+const getCourtDescription = (court: Court) => {
+  const descriptions: string[] = []
 
-interface Court {
-  id: string
-  name: string
-  type: 'indoor' | 'outdoor'
-  surface: SurfaceType
-  isActive: boolean
-  hasLighting: boolean
+  // Añadimos el deporte
+  const sportMap = {
+    padel: 'Pádel',
+    tennis: 'Tenis',
+    badminton: 'Bádminton',
+    pickleball: 'Pickleball',
+    squash: 'Squash'
+  }
+  descriptions.push(sportMap[court.sport])
+
+  // Añadimos el tipo de pista
+  const typeMap = {
+    indoor: 'Interior',
+    outdoor: 'Exterior',
+    covered: 'Cubierta'
+  }
+  descriptions.push(typeMap[court.courtType])
+
+  // Añadimos el tipo de superficie
+  const surfaceMap = {
+    crystal: 'Cristal Panorámico',
+    synthetic: 'Césped Sintético',
+    clay: 'Tierra Batida',
+    grass: 'Césped Natural',
+    rubber: 'Goma Profesional',
+    concrete: 'Hormigón Pulido',
+    panoramic: 'Cristal Premium'
+  }
+  descriptions.push(surfaceMap[court.surface])
+
+  return descriptions.join(' • ')
 }
 
-// Datos de ejemplo actualizados con los nuevos tipos de superficie
-const initialCourts: Court[] = [
-  { id: '1', name: 'Cancha Principal', type: 'indoor', surface: 'crystal', isActive: true, hasLighting: true },
-  { id: '2', name: 'Cancha Exterior 1', type: 'outdoor', surface: 'synthetic', isActive: true, hasLighting: true },
-  { id: '3', name: 'Cancha Exterior 2', type: 'outdoor', surface: 'clay', isActive: false, hasLighting: false },
-  { id: '4', name: 'Cancha Cubierta', type: 'indoor', surface: 'premium', isActive: true, hasLighting: true },
-]
-
 export function CourtsTable() {
-  const [courts, setCourts] = useState<Court[]>(initialCourts)
-  const [popoverOpen, setPopoverOpen] = useState<Record<string, boolean>>({})
+  // 1. Hooks primero
+  const { currentBranch } = useBranches()
+  const queryClient = useQueryClient()
+  const [courts, setCourts] = useState<Court[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const [isNewCourtModalOpen, setIsNewCourtModalOpen] = useState(false)
   const [editingCourt, setEditingCourt] = useState<Court | undefined>()
+  const [popoverOpen, setPopoverOpen] = useState<Record<string, boolean>>({})
 
-  const handleStatusChange = (courtId: string, newStatus: boolean) => {
-    setPopoverOpen(prev => ({ ...prev, [courtId]: false }))
-    setCourts(prevCourts =>
-      prevCourts.map(court =>
-        court.id === courtId ? { ...court, isActive: newStatus } : court
-      )
-    )
+  // 2. Query después de los hooks de estado
+  const courtsQuery = useQuery({
+    queryKey: ['courts', currentBranch?.id],
+    queryFn: () => courtService.getCourtsByBranch(currentBranch!.id),
+    enabled: !!currentBranch?.id,
+  })
+
+  // 3. Efectos y funciones auxiliares
+  useEffect(() => {
+    if (courtsQuery.data?.data) {
+      setCourts(courtsQuery.data.data)
+    }
+  }, [courtsQuery.data])
+
+  const handleNewCourt = async (courtData: Omit<Court, 'id'>) => {
+    if (!currentBranch?.id) {
+      toast.error('No hay una sede seleccionada')
+      return
+    }
+
+    try {
+      if (editingCourt) {
+        // Si hay una pista en edición, actualizamos
+        const { error } = await courtService.updateCourt(editingCourt.id, {
+          ...courtData,
+          branchId: currentBranch.id
+        })
+
+        if (error) throw error
+        toast.success('Pista actualizada exitosamente')
+      } else {
+        // Si no hay pista en edición, creamos una nueva
+        const { error } = await courtService.createCourt({
+          ...courtData,
+          branchId: currentBranch.id
+        })
+
+        if (error) throw error
+        toast.success('Pista creada exitosamente')
+      }
+
+      // Recargamos los datos y limpiamos el estado
+      queryClient.invalidateQueries(['courts', currentBranch.id])
+      setIsNewCourtModalOpen(false)
+      setEditingCourt(undefined)
+    } catch (error: any) {
+      toast.error(error.message || 'Error al guardar la pista')
+    }
   }
 
-  const handleNewCourt = (courtData: Omit<Court, 'id'>) => {
-    if (editingCourt) {
-      // Modo edición
+  const handleStatusChange = async (courtId: string, newStatus: boolean) => {
+    try {
+      // Actualizar en Supabase
+      const { error } = await courtService.updateCourtStatus(courtId, newStatus)
+      
+      if (error) throw error
+
+      // Actualizar estado local
       setCourts(prevCourts =>
         prevCourts.map(court =>
-          court.id === editingCourt.id
-            ? {
-                ...court,
-                ...courtData,
-                type: courtData.isIndoor ? 'indoor' : 'outdoor'
-              }
-            : court
+          court.id === courtId ? { ...court, isActive: newStatus } : court
         )
       )
-    } else {
-      // Modo creación
-      const newCourt: Court = {
-        ...courtData,
-        id: `${courts.length + 1}`,
-        type: courtData.isIndoor ? 'indoor' : 'outdoor'
-      }
-      setCourts(prev => [...prev, newCourt])
+
+      toast.success(`Pista ${newStatus ? 'activada' : 'suspendida'} exitosamente`)
+      setPopoverOpen(prev => ({ ...prev, [courtId]: false }))
+    } catch (error: any) {
+      toast.error(error.message || 'Error al actualizar el estado de la pista')
     }
-    setEditingCourt(undefined)
   }
 
-  const handleDeleteCourt = (courtId: string) => {
-    setCourts(prevCourts => prevCourts.filter(court => court.id !== courtId))
+  const handleDeleteCourt = async (courtId: string) => {
+    if (!currentBranch?.id) {
+      toast.error('No hay una sede seleccionada')
+      return
+    }
+
+    try {
+      const { error } = await courtService.deleteCourt(courtId)
+
+      if (error) throw error
+
+      toast.success('Pista eliminada exitosamente')
+      queryClient.invalidateQueries(['courts', currentBranch.id])
+      setIsNewCourtModalOpen(false)
+      setEditingCourt(undefined)
+    } catch (error: any) {
+      toast.error(error.message || 'Error al eliminar la pista')
+    }
   }
 
   const handleCourtClick = (court: Court) => {
@@ -76,31 +155,26 @@ export function CourtsTable() {
     setIsNewCourtModalOpen(true)
   }
 
-  // Función actualizada para obtener el texto descriptivo
-  const getCourtDescription = (type: string, surface: SurfaceType) => {
-    const surfaceMap = {
-      crystal: 'Cristal Panorámico',
-      panoramic: 'Cristal Premium',
-      premium: 'Cristal Pro',
-      synthetic: 'Césped Sintético',
-      clay: 'Tierra Batida',
-      grass: 'Césped Natural',
-      rubber: 'Goma Profesional',
-      concrete: 'Hormigón Pulido'
-    }
-    const typeMap = {
-      indoor: 'Cubierta',
-      outdoor: 'Exterior'
-    }
-    return `${typeMap[type as keyof typeof typeMap]} • ${surfaceMap[surface]}`
+  // 4. Renderizado condicional
+  if (!currentBranch) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-gray-500">Selecciona una sede para ver sus pistas</p>
+      </div>
+    )
   }
 
+  if (courtsQuery.isLoading) {
+    return <div>Cargando pistas...</div>
+  }
+
+  // 5. Renderizado principal
   return (
     <div className="w-full">
       {/* Header */}
       <div className="p-4 flex justify-between items-center">
         <div className="flex items-center">
-          <h3 className="text-xl font-medium">Lista de Canchas</h3>
+          <h3 className="text-xl font-medium">Lista de Pistas</h3>
         </div>
 
         <Button 
@@ -108,36 +182,37 @@ export function CourtsTable() {
           className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 flex items-center text-sm"
         >
           <IconPlus className="h-5 w-5 mr-2" />
-          Nueva Cancha
+          Nueva Pista
         </Button>
       </div>
 
-      {/* Lista de Canchas */}
+      {/* Lista de Pistas */}
       <div className="px-4 pb-4">
         <div className="space-y-3">
           {courts.map((court) => (
             <div
               key={court.id}
               onClick={() => handleCourtClick(court)}
-              className="flex items-center justify-between p-4 rounded-lg border bg-white hover:border-black transition-colors cursor-pointer"
+              className={cn(
+                "flex items-center justify-between p-4 rounded-lg border bg-white",
+                "hover:border-black transition-colors cursor-pointer"
+              )}
             >
               <div className="space-y-1">
                 <h4 className="text-base font-medium">{court.name}</h4>
                 <p className="text-sm text-gray-500">
-                  {getCourtDescription(court.type, court.surface)}
+                  {getCourtDescription(court)}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                 <span className="text-sm text-gray-500 mr-2">
                   {court.isActive ? 'Activa' : 'Suspendida'}
                 </span>
                 <Popover 
                   open={popoverOpen[court.id]} 
                   onOpenChange={(open) => {
-                    if (court.isActive !== !court.isActive) {
-                      setPopoverOpen(prev => ({ ...prev, [court.id]: open }))
-                    }
+                    setPopoverOpen(prev => ({ ...prev, [court.id]: open }))
                   }}
                 >
                   <PopoverTrigger asChild>
@@ -152,7 +227,7 @@ export function CourtsTable() {
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-3" align="end">
                     <div className="text-sm">
-                      <p>¿Desea {court.isActive ? 'suspender' : 'activar'} esta cancha?</p>
+                      <p>¿Desea {court.isActive ? 'suspender' : 'activar'} esta pista?</p>
                       <div className="flex justify-end gap-2 mt-2">
                         <button 
                           className="px-2 py-1 text-xs bg-gray-100 rounded-md hover:bg-gray-200"
@@ -176,6 +251,7 @@ export function CourtsTable() {
         </div>
       </div>
 
+      {/* Modal */}
       <NewCourtModal
         isOpen={isNewCourtModalOpen}
         onClose={() => {

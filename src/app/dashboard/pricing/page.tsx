@@ -18,6 +18,7 @@ export default function PricingPage() {
       <Tabs defaultValue="items" className="w-full">
         <TabsList className="border-b-0 border-slate-200/25 [&:after]:h-px [&:after]:bg-slate-200/25">
           <TabsTrigger value="items">Artículos</TabsTrigger>
+          <TabsTrigger value="coupons">Cupones</TabsTrigger>
           
           <TooltipProvider delayDuration={0}>
             <Tooltip>
@@ -58,31 +59,17 @@ export default function PricingPage() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger className="opacity-60">
-                <TabsTrigger 
-                  value="coupons"
-                  className="data-[state=inactive]:text-gray-500 pointer-events-none"
-                  disabled
-                >
-                  Cupones
-                </TabsTrigger>
-              </TooltipTrigger>
-              <TooltipContent 
-                className="bg-black text-white text-xs px-2 py-1 rounded"
-                sideOffset={5}
-              >
-                Próximamente
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
         </TabsList>
 
         <TabsContent value="items">
           <div className="bg-card">
             <ItemsTable />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="coupons">
+          <div className="bg-card">
+            <CouponsTable />
           </div>
         </TabsContent>
       </Tabs>
