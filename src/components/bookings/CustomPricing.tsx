@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { Switch } from "@/components/ui/switch"
+import { TimeSelect } from "@/components/ui/time-select"
+import { IconTrash } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
-import { Switch } from "@/components/ui/switch"
-import { TimeSelector } from "@/components/ui/time-selector"
-import type { DurationOption } from "@/types/court"
 
 interface TimeRange {
   startTime: string
@@ -13,21 +13,39 @@ interface TimeRange {
   percentage: number
 }
 
-interface DayPricing {
-  isSelected: boolean
-  timeRanges: TimeRange[]
-}
-
 interface CustomPricingConfig {
-  [key: number]: DayPricing
+  [key: string]: {
+    isSelected: boolean
+    timeRanges: TimeRange[]
+  }
 }
 
 interface CustomPricingProps {
   pricing: CustomPricingConfig
   onChange: (pricing: CustomPricingConfig) => void
-  basePricing: { [key: number]: number }
-  availableDurations: DurationOption[]
+  basePricing: Record<string, number>
+  availableDurations: number[]
 }
+
+const DAYS = [
+  { key: '1', label: 'L' },
+  { key: '2', label: 'M' },
+  { key: '3', label: 'X' },
+  { key: '4', label: 'J' },
+  { key: '5', label: 'V' },
+  { key: '6', label: 'S' },
+  { key: '7', label: 'D' },
+] as const
+
+const DAYS_COMPLETE = [
+  { key: '1', label: 'Lunes' },
+  { key: '2', label: 'Martes' },
+  { key: '3', label: 'Miércoles' },
+  { key: '4', label: 'Jueves' },
+  { key: '5', label: 'Viernes' },
+  { key: '6', label: 'Sábado' },
+  { key: '7', label: 'Domingo' },
+] as const
 
 export function CustomPricing({
   pricing,
@@ -35,41 +53,95 @@ export function CustomPricing({
   basePricing,
   availableDurations
 }: CustomPricingProps) {
-  const weekDays = [
-    { id: 0, label: 'D' },
-    { id: 1, label: 'L' },
-    { id: 2, label: 'M' },
-    { id: 3, label: 'X' },
-    { id: 4, label: 'J' },
-    { id: 5, label: 'V' },
-    { id: 6, label: 'S' }
-  ]
+  const [selectedDays, setSelectedDays] = useState<Record<string, boolean>>({})
+  const [hasCustomPricing, setHasCustomPricing] = useState(false)
 
-  const weekDaysComplete = [
-    { id: 0, label: 'Domingo' },
-    { id: 1, label: 'Lunes' },
-    { id: 2, label: 'Martes' },
-    { id: 3, label: 'Miércoles' },
-    { id: 4, label: 'Jueves' },
-    { id: 5, label: 'Viernes' },
-    { id: 6, label: 'Sábado' }
-  ]
+  // Inicializar el estado de los días seleccionados cuando se carga el pricing
+  useEffect(() => {
+    const initialSelectedDays = DAYS.reduce((acc, day) => {
+      acc[day.key] = pricing[day.key]?.isSelected || false
+      return acc
+    }, {} as Record<string, boolean>)
+    setSelectedDays(initialSelectedDays)
+    
+    // Verificar si hay algún día con precios personalizados
+    const hasAnyCustomPricing = Object.values(pricing).some(day => day.isSelected)
+    setHasCustomPricing(hasAnyCustomPricing)
+  }, [pricing])
 
-  const handleDayChange = (dayId: number, changes: Partial<DayPricing>) => {
-    onChange({
-      ...pricing,
-      [dayId]: {
-        ...pricing[dayId],
-        ...changes
+  const handleDayToggle = (day: string) => {
+    const newSelectedDays = { ...selectedDays, [day]: !selectedDays[day] }
+    setSelectedDays(newSelectedDays)
+
+    const newPricing = { ...pricing }
+    if (newSelectedDays[day]) {
+      newPricing[day] = {
+        isSelected: true,
+        timeRanges: [
+          {
+            startTime: "09:00",
+            endTime: "22:00",
+            percentage: 0
+          }
+        ]
       }
+    } else {
+      if (newPricing[day]) {
+        newPricing[day].isSelected = false
+      }
+    }
+    onChange(newPricing)
+  }
+
+  const handleAddTimeRange = (day: string) => {
+    const newPricing = { ...pricing }
+    if (!newPricing[day]) {
+      newPricing[day] = {
+        isSelected: true,
+        timeRanges: []
+      }
+    }
+    newPricing[day].timeRanges.push({
+      startTime: "09:00",
+      endTime: "22:00",
+      percentage: 0
     })
+    onChange(newPricing)
+  }
+
+  const handleRemoveTimeRange = (day: string, index: number) => {
+    const newPricing = { ...pricing }
+    newPricing[day].timeRanges.splice(index, 1)
+    if (newPricing[day].timeRanges.length === 0) {
+      newPricing[day].isSelected = false
+      setSelectedDays(prev => ({ ...prev, [day]: false }))
+    }
+    onChange(newPricing)
+  }
+
+  const handleTimeRangeChange = (
+    day: string,
+    index: number,
+    field: keyof TimeRange,
+    value: string | number
+  ) => {
+    const newPricing = { ...pricing }
+    if (!newPricing[day]) {
+      newPricing[day] = {
+        isSelected: true,
+        timeRanges: []
+      }
+    }
+    newPricing[day].timeRanges[index] = {
+      ...newPricing[day].timeRanges[index],
+      [field]: value
+    }
+    onChange(newPricing)
   }
 
   const calculateFinalPrice = (basePrice: number, percentage: number) => {
     return basePrice + (basePrice * (percentage / 100))
   }
-
-  const [hasCustomPricing, setHasCustomPricing] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -101,19 +173,14 @@ export function CustomPricing({
               Selecciona los días
             </label>
             <div className="flex justify-center gap-2">
-              {weekDays.map((day) => (
+              {DAYS.map((day) => (
                 <button
-                  key={day.id}
-                  onClick={() => {
-                    handleDayChange(day.id, {
-                      isSelected: !pricing[day.id]?.isSelected,
-                      timeRanges: !pricing[day.id]?.isSelected ? [{ startTime: '09:00', endTime: '22:00', percentage: 0 }] : []
-                    })
-                  }}
+                  key={day.key}
+                  onClick={() => handleDayToggle(day.key)}
                   className={cn(
                     "w-9 h-9 rounded-lg text-sm font-medium",
                     "transition-all duration-200",
-                    pricing[day.id]?.isSelected
+                    selectedDays[day.key]
                       ? "bg-black text-white shadow-sm"
                       : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                   )}
@@ -126,13 +193,12 @@ export function CustomPricing({
 
           {/* Configuración por día */}
           <div className="space-y-4">
-            {weekDaysComplete.map((day, index) => {
-              const daySettings = pricing[day.id]
-              if (!daySettings?.isSelected) return null
+            {DAYS_COMPLETE.map((day, index) => {
+              if (!selectedDays[day.key]) return null
 
               return (
                 <motion.div
-                  key={day.id}
+                  key={day.key}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
@@ -143,32 +209,24 @@ export function CustomPricing({
                   </span>
 
                   <div className="space-y-6">
-                    {daySettings.timeRanges?.map((range, rangeIndex) => (
+                    {pricing[day.key]?.timeRanges.map((range, rangeIndex) => (
                       <div key={rangeIndex} className="space-y-4">
                         <div className="relative group">
                           <div className="grid grid-cols-3 gap-4">
                             <div className="space-y-1.5">
                               <label className="text-xs text-gray-500">Desde</label>
-                              <TimeSelector
+                              <TimeSelect
                                 value={range.startTime}
-                                onChange={(value) => {
-                                  const newRanges = [...daySettings.timeRanges]
-                                  newRanges[rangeIndex] = { ...range, startTime: value }
-                                  handleDayChange(day.id, { timeRanges: newRanges })
-                                }}
+                                onChange={(value) => handleTimeRangeChange(day.key, rangeIndex, 'startTime', value)}
                                 className="border-gray-200 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-black"
                               />
                             </div>
-                            
+
                             <div className="space-y-1.5">
                               <label className="text-xs text-gray-500">Hasta</label>
-                              <TimeSelector
+                              <TimeSelect
                                 value={range.endTime}
-                                onChange={(value) => {
-                                  const newRanges = [...daySettings.timeRanges]
-                                  newRanges[rangeIndex] = { ...range, endTime: value }
-                                  handleDayChange(day.id, { timeRanges: newRanges })
-                                }}
+                                onChange={(value) => handleTimeRangeChange(day.key, rangeIndex, 'endTime', value)}
                                 className="border-gray-200 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-black"
                               />
                             </div>
@@ -178,15 +236,8 @@ export function CustomPricing({
                               <div className="relative">
                                 <input
                                   type="number"
-                                  value={range.percentage || ''}
-                                  onChange={(e) => {
-                                    const newRanges = [...daySettings.timeRanges]
-                                    newRanges[rangeIndex] = {
-                                      ...range,
-                                      percentage: parseFloat(e.target.value) || 0
-                                    }
-                                    handleDayChange(day.id, { timeRanges: newRanges })
-                                  }}
+                                  value={range.percentage}
+                                  onChange={(e) => handleTimeRangeChange(day.key, rangeIndex, 'percentage', Number(e.target.value))}
                                   placeholder="0"
                                   className={cn(
                                     "w-full h-10 px-3 text-right pr-8 text-sm",
@@ -206,12 +257,9 @@ export function CustomPricing({
                           </div>
 
                           {/* Botón de eliminar más sutil */}
-                          {daySettings.timeRanges.length > 1 && (
+                          {pricing[day.key].timeRanges.length > 1 && (
                             <button
-                              onClick={() => {
-                                const newRanges = daySettings.timeRanges.filter((_, i) => i !== rangeIndex)
-                                handleDayChange(day.id, { timeRanges: newRanges })
-                              }}
+                              onClick={() => handleRemoveTimeRange(day.key, rangeIndex)}
                               className={cn(
                                 "absolute -right-1 top-2",
                                 "w-5 h-5",
@@ -227,7 +275,7 @@ export function CustomPricing({
                           )}
                         </div>
 
-                        {/* Vista previa de precios más elegante */}
+                        {/* Vista previa de precios */}
                         <div className="pl-4 border-l-2 border-gray-100">
                           <div className="space-y-3">
                             <span className="text-xs font-medium text-gray-400">
@@ -266,13 +314,7 @@ export function CustomPricing({
                     ))}
 
                     <button
-                      onClick={() => {
-                        const newRanges = [
-                          ...daySettings.timeRanges,
-                          { startTime: '09:00', endTime: '22:00', percentage: 0 }
-                        ]
-                        handleDayChange(day.id, { timeRanges: newRanges })
-                      }}
+                      onClick={() => handleAddTimeRange(day.key)}
                       className={cn(
                         "text-sm text-gray-500",
                         "hover:text-gray-900",

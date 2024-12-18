@@ -1,6 +1,6 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { type Database } from '@/types/supabase'
-import { type Item } from '@/types/items'
+import { type Item, type ItemType } from '@/types/items'
 
 // Usamos una clase para mejor organización y encapsulamiento
 class ItemService {
@@ -16,12 +16,10 @@ class ItemService {
     return ItemService.instance
   }
 
-  async getItemsByBranch(sedeId: string) {
+  async getItemsByBranch(branchId: string): Promise<Item[]> {
     try {
-      console.log('📍 Obteniendo items para sede:', sedeId)
+      console.log('📍 Obteniendo items para sede:', branchId)
       
-      if (!sedeId) throw new Error('El ID de la sede es requerido')
-
       const { data, error } = await this.supabase
         .from('items')
         .select(`
@@ -34,20 +32,48 @@ class ItemService {
           requires_deposit,
           deposit_amount,
           is_active,
+          sede_id,
           empresa_id,
-          sede_id
+          created_at,
+          updated_at
         `)
-        .eq('sede_id', sedeId)
+        .eq('sede_id', branchId)
         .eq('is_active', true)
-        .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ Error al obtener items:', error)
+        throw new Error(`Error al obtener items: ${error.message}`)
+      }
 
-      console.log('✅ Items obtenidos:', data)
-      return data?.map(item => this.dbItemToAppItem(item)) || []
-    } catch (error: any) {
-      console.error('❌ Error en getItems:', error)
-      throw new Error(`Error al obtener items: ${error.message}`)
+      if (!data) {
+        console.log('ℹ️ No se encontraron items')
+        return []
+      }
+
+      // Transformar los datos al formato esperado por la interfaz Item
+      const items = data.map(item => ({
+        id: item.id,
+        name: item.name || '',
+        description: item.description || '',
+        type: item.type as ItemType,
+        price: Number(item.price) || 0,
+        stock: Number(item.stock) || 0,
+        duration_pricing: item.duration_pricing || {},
+        default_duration: item.default_duration || 60,
+        requiresDeposit: item.requires_deposit,
+        depositAmount: item.deposit_amount,
+        isActive: item.is_active,
+        sede_id: item.sede_id,
+        empresa_id: item.empresa_id,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      }))
+
+      console.log('✅ Items transformados:', items)
+      return items
+    } catch (error) {
+      console.error('❌ Error en getItemsByBranch:', error)
+      throw error
     }
   }
 

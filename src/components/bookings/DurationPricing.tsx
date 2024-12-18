@@ -4,19 +4,15 @@ import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
 import type { DurationOption } from "@/types/court"
 
-interface DurationPricing {
-  [key: number]: number
-}
-
 interface DurationPricingProps {
-  durations: DurationOption[]
-  pricing: DurationPricing
-  onChange: (pricing: DurationPricing) => void
+  durations: number[]
+  pricing?: Record<string, number>
+  onChange: (pricing: Record<string, number>) => void
 }
 
 export function DurationPricing({
   durations,
-  pricing,
+  pricing = {},
   onChange
 }: DurationPricingProps) {
   const handlePriceChange = (duration: number, price: string) => {
@@ -75,7 +71,7 @@ export function DurationPricing({
                     )}
                   />
                   <span className="absolute right-0 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
-                    €
+                    $
                   </span>
                 </div>
               </div>

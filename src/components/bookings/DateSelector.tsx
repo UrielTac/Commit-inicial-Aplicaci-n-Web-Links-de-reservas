@@ -51,7 +51,7 @@ export function DateSelector({ selectedDate, onDateChange, className }: DateSele
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "flex items-center px-3 py-2 bg-white hover:bg-gray-50",
-          "border border-gray-200 rounded-lg shadow-sm transition-colors duration-200",
+          "border border-gray-200 rounded-md transition-colors duration-200",
           "text-sm font-medium text-black"
         )}
       >

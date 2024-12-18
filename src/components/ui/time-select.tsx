@@ -1,90 +1,119 @@
 "use client"
 
-import * as React from "react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { IconClock } from "@tabler/icons-react"
-import * as SelectPrimitive from "@radix-ui/react-select"
 
-interface TimeSelectProps extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root> {
-  label?: string
-  options: string[]
+interface TimeSelectProps {
+  value: string
+  onChange: (value: string) => void
+  className?: string
 }
 
-const TimeSelect = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Trigger>,
-  TimeSelectProps
->(({ className, label, options, ...props }, ref) => {
+export function TimeSelect({ value, onChange, className }: TimeSelectProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [selectedHour, setSelectedHour] = useState(value.split(':')[0])
+  const [selectedMinute, setSelectedMinute] = useState(value.split(':')[1])
+
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))
+  const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'))
+
+  // Cerrar el selector cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = () => setIsOpen(false)
+    if (isOpen) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [isOpen])
+
+  // Actualizar la hora seleccionada cuando cambia el valor
+  useEffect(() => {
+    const [hour, minute] = value.split(':')
+    setSelectedHour(hour)
+    setSelectedMinute(minute)
+  }, [value])
+
+  const handleTimeSelect = (hour: string, minute: string) => {
+    onChange(`${hour}:${minute}`)
+    setIsOpen(false)
+  }
+
   return (
     <div className="relative">
-      {label && (
-        <label className="text-xs font-medium text-gray-500 mb-1.5 block">
-          {label}
-        </label>
-      )}
-      <SelectPrimitive.Root {...props}>
-        <SelectPrimitive.Trigger
-          ref={ref}
+      <div className="relative">
+        <input
+          type="text"
+          value={value}
+          readOnly
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsOpen(!isOpen)
+          }}
           className={cn(
-            "w-full appearance-none pl-8 pr-4 py-1.5 text-sm rounded-md transition-colors",
-            "border border-gray-200 hover:border-gray-300",
-            "focus:border-black focus:ring-0 outline-none",
-            "bg-white data-[placeholder]:text-gray-500",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
+            "w-full px-3 pr-8 py-2 rounded-lg border bg-white cursor-pointer",
+            "focus:outline-none focus:border-gray-300",
+            "transition-colors duration-200",
             className
           )}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <SelectPrimitive.Value />
-            <SelectPrimitive.Icon>
-              <IconClock className="h-3.5 w-3.5 text-gray-500" />
-            </SelectPrimitive.Icon>
-          </div>
-        </SelectPrimitive.Trigger>
+        />
+        <IconClock className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+      </div>
 
-        <SelectPrimitive.Portal>
-          <SelectPrimitive.Content
-            className={cn(
-              "relative z-[9999] min-w-[8rem] overflow-hidden rounded-md border bg-white text-gray-950 shadow-md",
-              "data-[state=open]:animate-in data-[state=closed]:animate-out",
-              "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-              "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-              "data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2",
-              "data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
-            )}
-            position="popper"
-            align="start"
-          >
-            <SelectPrimitive.Viewport 
-              className={cn(
-                "p-1",
-                "max-h-[180px] overflow-y-auto",
-                "scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent",
-                "hover:scrollbar-thumb-gray-300"
-              )}
-            >
-              {options.map((time) => (
-                <SelectPrimitive.Item
-                  key={time}
-                  value={time}
+      {isOpen && (
+        <div 
+          className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex divide-x border-b">
+            <div className="flex-1 py-1 text-center text-xs font-medium text-gray-500">
+              Hora
+            </div>
+            <div className="flex-1 py-1 text-center text-xs font-medium text-gray-500">
+              Minutos
+            </div>
+          </div>
+          <div className="flex divide-x" style={{ height: '200px' }}>
+            {/* Columna de horas */}
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+              {hours.map((hour) => (
+                <button
+                  key={hour}
+                  onClick={() => handleTimeSelect(hour, selectedMinute)}
                   className={cn(
-                    "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 px-2 text-sm outline-none",
-                    "focus:bg-gray-100 focus:text-gray-900",
-                    "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-                    "data-[highlighted]:bg-gray-100 data-[highlighted]:text-gray-900",
-                    "data-[state=checked]:bg-gray-100 data-[state=checked]:text-gray-900"
+                    "w-full px-3 py-1.5 text-left text-sm",
+                    "transition-colors duration-200",
+                    hour === selectedHour
+                      ? "bg-gray-100 text-gray-900 font-medium"
+                      : "text-gray-600 hover:bg-gray-50"
                   )}
                 >
-                  <SelectPrimitive.ItemText>{time}</SelectPrimitive.ItemText>
-                </SelectPrimitive.Item>
+                  {hour}
+                </button>
               ))}
-            </SelectPrimitive.Viewport>
-          </SelectPrimitive.Content>
-        </SelectPrimitive.Portal>
-      </SelectPrimitive.Root>
+            </div>
+
+            {/* Columna de minutos */}
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+              {minutes.map((minute) => (
+                <button
+                  key={minute}
+                  onClick={() => handleTimeSelect(selectedHour, minute)}
+                  className={cn(
+                    "w-full px-3 py-1.5 text-left text-sm",
+                    "transition-colors duration-200",
+                    minute === selectedMinute
+                      ? "bg-gray-100 text-gray-900 font-medium"
+                      : "text-gray-600 hover:bg-gray-50"
+                  )}
+                >
+                  {minute}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
-})
-
-TimeSelect.displayName = "TimeSelect"
-
-export { TimeSelect } 
+} 

@@ -1,7 +1,7 @@
 export interface Database {
   public: {
     Tables: {
-      profiles: {
+      members: {
         Row: {
           id: string
           first_name: string | null
@@ -83,92 +83,7 @@ export interface Database {
           updated_at?: string
         }
       }
-      bookings: {
-        Row: {
-          id: string
-          court_id: string
-          user_id: string
-          start_time: string
-          end_time: string
-          status: 'pending' | 'confirmed' | 'cancelled' | 'completed'
-          type: 'regular' | 'class' | 'tournament'
-          price: number
-          payment_status: 'pending' | 'partial' | 'completed'
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          court_id: string
-          user_id: string
-          start_time: string
-          end_time: string
-          status?: 'pending' | 'confirmed' | 'cancelled' | 'completed'
-          type?: 'regular' | 'class' | 'tournament'
-          price?: number
-          payment_status?: 'pending' | 'partial' | 'completed'
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          court_id?: string
-          user_id?: string
-          start_time?: string
-          end_time?: string
-          status?: 'pending' | 'confirmed' | 'cancelled' | 'completed'
-          type?: 'regular' | 'class' | 'tournament'
-          price?: number
-          payment_status?: 'pending' | 'partial' | 'completed'
-          created_at?: string
-          updated_at?: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          price: number
-          interval: 'monthly' | 'quarterly' | 'annual'
-          features?: string[]
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-      }
-      rental_items: {
-        Row: {
-          id: string
-          name: string
-          description: string
-          price: number
-          available: number
-          category: 'equipment' | 'accessories' | 'other'
-          image_url: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          description: string
-          price: number
-          available: number
-          category: 'equipment' | 'accessories' | 'other'
-          image_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          description?: string
-          price?: number
-          available?: number
-          category?: 'equipment' | 'accessories' | 'other'
-          image_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      Empresas: {
+      empresas: {
         Row: {
           id: string
           name: string
@@ -258,7 +173,14 @@ export interface Database {
           phone: string
           manager_id: string
           is_active: boolean
-          opening_hours: Record<string, any>
+          opening_hours: {
+            [day: string]: {
+              ranges: Array<{
+                start: string  // formato "HH:mm"
+                end: string    // formato "HH:mm"
+              }>
+            }
+          }
           settings: Record<string, any>
           empresa_id: string
           created_at: string
@@ -271,7 +193,14 @@ export interface Database {
           phone: string
           manager_id: string
           is_active?: boolean
-          opening_hours?: Record<string, any>
+          opening_hours?: {
+            [day: string]: {
+              ranges: Array<{
+                start: string  // formato "HH:mm"
+                end: string    // formato "HH:mm"
+              }>
+            }
+          }
           settings?: Record<string, any>
           empresa_id: string
           created_at?: string
@@ -284,7 +213,14 @@ export interface Database {
           phone?: string
           manager_id?: string
           is_active?: boolean
-          opening_hours?: Record<string, any>
+          opening_hours?: {
+            [day: string]: {
+              ranges: Array<{
+                start: string  // formato "HH:mm"
+                end: string    // formato "HH:mm"
+              }>
+            }
+          }
           settings?: Record<string, any>
           empresa_id?: string
           created_at?: string

@@ -1,188 +1,143 @@
 import { supabase } from '@/lib/supabase'
 import type { Court, CreateCourtDTO } from '@/types/court'
+import type { PostgrestError } from '@supabase/supabase-js'
 
-export class CourtService {
-  private validateCourtData(data: CreateCourtDTO) {
-    if (!data.name?.trim()) {
-      throw new Error('El nombre de la pista es requerido')
-    }
-    if (!data.branchId) {
-      throw new Error('La sede es requerida')
-    }
-    if (!data.sport) {
-      throw new Error('El deporte es requerido')
-    }
-    if (!data.courtType) {
-      throw new Error('El tipo de pista es requerido')
-    }
-    if (!data.surface) {
-      throw new Error('La superficie es requerida')
-    }
+interface ServiceResponse<T> {
+  data?: T
+  error?: {
+    message: string
+    details?: string
+    hint?: string
   }
+}
 
-  async createCourt(data: CreateCourtDTO) {
+export const courtService = {
+  async getCourtsByBranch(branchId: string): Promise<ServiceResponse<Court[]>> {
     try {
-      console.log('📍 Iniciando creación de pista:', data)
-      
-      this.validateCourtData(data)
-
-      const courtData = {
-        name: data.name.trim(),
-        branch_id: data.branchId,
-        sport: data.sport,
-        court_type: data.courtType,
-        surface: data.surface,
-        features: data.features || [],
-        is_active: data.isActive ?? true,
-        available_durations: data.availableDurations || [60],
-        duration_pricing: data.durationPricing || {},
-        custom_pricing: data.customPricing || {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-
-      console.log('📍 Datos preparados para inserción:', courtData)
-
-      const { data: court, error } = await supabase
+      const { data, error } = await supabase
         .from('courts')
-        .insert([courtData])
         .select('*')
-        .single()
-
-      if (error) {
-        console.error('❌ Error de Supabase:', error)
-        throw error
-      }
-
-      if (!court) {
-        throw new Error('No se recibieron datos después de crear la pista')
-      }
-
-      // Transformar la respuesta al formato esperado por el cliente
-      const transformedCourt: Court = {
-        id: court.id,
-        name: court.name,
-        branchId: court.branch_id,
-        sport: court.sport,
-        courtType: court.court_type,
-        surface: court.surface,
-        features: court.features || [],
-        isActive: court.is_active,
-        availableDurations: court.available_durations || [60],
-        durationPricing: court.duration_pricing || {},
-        customPricing: court.custom_pricing || {},
-        createdAt: court.created_at,
-        updatedAt: court.updated_at
-      }
-
-      console.log('✅ Pista creada exitosamente:', transformedCourt)
-      return { data: transformedCourt, error: null }
-    } catch (error) {
-      console.error('❌ Error detallado:', error)
-      throw error
-    }
-  }
-
-  async getCourtsByBranch(branchId: string) {
-    try {
-      const { data: courts, error } = await supabase
-        .from('courts')
-        .select(`
-          id,
-          name,
-          branch_id,
-          sport,
-          court_type,
-          surface,
-          features,
-          is_active,
-          available_durations,
-          duration_pricing,
-          custom_pricing,
-          created_at,
-          updated_at
-        `)
         .eq('branch_id', branchId)
-        .order('created_at', { ascending: false })
+        .order('name')
 
       if (error) throw error
 
-      // Transformar la respuesta al formato esperado por el cliente
-      const transformedCourts: Court[] = courts.map(court => ({
-        id: court.id,
-        name: court.name,
-        branchId: court.branch_id,
-        sport: court.sport,
-        courtType: court.court_type,
-        surface: court.surface,
-        features: court.features || [],
-        isActive: court.is_active,
-        availableDurations: court.available_durations || [60],
-        durationPricing: court.duration_pricing || {},
-        customPricing: court.custom_pricing || {},
-        createdAt: court.created_at,
-        updatedAt: court.updated_at
-      }))
-
-      return { data: transformedCourts, error: null }
-    } catch (error: any) {
-      console.error('❌ Error al obtener pistas:', error)
-      return {
-        data: null,
-        error: {
-          message: error.message || 'Error al obtener las pistas',
-          details: error.details,
-          hint: error.hint
+      // Procesar y validar los datos
+      const processedCourts = data.map(court => {
+        // Procesar available_durations
+        let available_durations: number[] = []
+        
+        try {
+          if (Array.isArray(court.available_durations)) {
+            available_durations = court.available_durations
+              .map(d => Number(d))
+              .filter(d => !isNaN(d))
+              .sort((a, b) => a - b)
+          } else if (typeof court.available_durations === 'string') {
+            const parsed = JSON.parse(court.available_durations)
+            if (Array.isArray(parsed)) {
+              available_durations = parsed
+                .map(d => Number(d))
+                .filter(d => !isNaN(d))
+                .sort((a, b) => a - b)
+            }
+          }
+        } catch (e) {
+          console.error('Error procesando available_durations:', e)
         }
-      }
-    }
-  }
 
-  async deleteCourt(courtId: string) {
-    try {
-      console.log('📍 Iniciando eliminación de pista:', courtId)
+        // Procesar duration_pricing
+        let duration_pricing: Record<string, number> = {}
+        try {
+          if (typeof court.duration_pricing === 'string') {
+            duration_pricing = JSON.parse(court.duration_pricing)
+          } else if (court.duration_pricing && typeof court.duration_pricing === 'object') {
+            Object.entries(court.duration_pricing).forEach(([key, value]) => {
+              const numValue = Number(value)
+              if (!isNaN(numValue)) {
+                duration_pricing[key] = numValue
+              }
+            })
+          }
+        } catch (e) {
+          console.error('Error procesando duration_pricing:', e)
+        }
 
-      const { error } = await supabase
-        .from('courts')
-        .delete()
-        .eq('id', courtId)
+        // Procesar custom_pricing
+        let custom_pricing = {}
+        try {
+          if (typeof court.custom_pricing === 'string') {
+            custom_pricing = JSON.parse(court.custom_pricing)
+          } else if (court.custom_pricing && typeof court.custom_pricing === 'object') {
+            custom_pricing = court.custom_pricing
+          }
+        } catch (e) {
+          console.error('Error procesando custom_pricing:', e)
+        }
 
-      if (error) {
-        console.error('❌ Error de Supabase:', error)
-        throw error
-      }
+        console.log('Datos procesados de la cancha:', {
+          name: court.name,
+          available_durations,
+          duration_pricing,
+          custom_pricing
+        })
 
-      console.log('✅ Pista eliminada exitosamente')
-      return { error: null }
+        return {
+          ...court,
+          available_durations,
+          duration_pricing,
+          custom_pricing,
+          is_active: Boolean(court.is_active)
+        } as Court
+      })
+
+      return { data: processedCourts }
     } catch (error) {
-      console.error('❌ Error al eliminar pista:', error)
+      console.error('Error al obtener las canchas:', error)
+      const pgError = error as PostgrestError
       return {
         error: {
-          message: error.message || 'Error al eliminar la pista',
-          details: error.details,
-          hint: error.hint
+          message: pgError.message || 'Error al obtener las canchas',
+          details: pgError.details,
+          hint: pgError.hint
         }
       }
     }
-  }
+  },
 
-  async updateCourt(courtId: string, data: Omit<Court, 'id'>) {
+  async updateCourt(courtId: string, data: CreateCourtDTO): Promise<ServiceResponse<void>> {
     try {
-      console.log('📍 Iniciando actualización de pista:', { courtId, data })
+      // Asegurarse de que los datos estén en el formato correcto
+      const duration_pricing = Object.entries(data.duration_pricing || {}).reduce((acc, [key, value]) => {
+        const numValue = Number(value)
+        if (!isNaN(numValue)) {
+          acc[key] = numValue
+        }
+        return acc
+      }, {} as Record<string, number>)
+
+      const available_durations = (data.available_durations || [])
+        .map(d => Number(d))
+        .filter(d => !isNaN(d))
+        .sort((a, b) => a - b)
 
       const courtData = {
         name: data.name.trim(),
-        branch_id: data.branchId,
+        branch_id: data.branch_id,
         sport: data.sport,
-        court_type: data.courtType,
+        court_type: data.court_type,
         surface: data.surface,
-        features: data.features || [],
-        is_active: data.isActive ?? true,
-        available_durations: data.availableDurations || [60],
-        duration_pricing: data.durationPricing || {},
-        custom_pricing: data.customPricing || {},
+        is_active: data.is_active,
+        duration_pricing,
+        custom_pricing: data.custom_pricing || {},
+        available_durations,
         updated_at: new Date().toISOString()
       }
+
+      console.log('Datos a actualizar:', {
+        id: courtId,
+        ...courtData
+      })
 
       const { error } = await supabase
         .from('courts')
@@ -190,28 +145,107 @@ export class CourtService {
         .eq('id', courtId)
 
       if (error) {
-        console.error('❌ Error de Supabase:', error)
+        console.error('Error de Supabase:', error)
         throw error
       }
 
-      console.log('✅ Pista actualizada exitosamente')
-      return { error: null }
+      // Verificar que la actualización fue exitosa
+      const { data: updatedCourt, error: verifyError } = await supabase
+        .from('courts')
+        .select('*')
+        .eq('id', courtId)
+        .single()
+
+      if (verifyError) {
+        console.error('Error al verificar actualización:', verifyError)
+        throw verifyError
+      }
+
+      // Verificar que los datos se actualizaron correctamente
+      const expectedDurationPricing = JSON.stringify(duration_pricing)
+      const actualDurationPricing = JSON.stringify(updatedCourt.duration_pricing)
+      
+      if (expectedDurationPricing !== actualDurationPricing) {
+        console.error('Los precios no se actualizaron correctamente:', {
+          expected: duration_pricing,
+          actual: updatedCourt.duration_pricing
+        })
+        throw new Error('Los precios no se actualizaron correctamente')
+      }
+
+      return {}
     } catch (error) {
-      console.error('❌ Error al actualizar pista:', error)
+      console.error('Error al actualizar la cancha:', error)
+      const pgError = error as PostgrestError
       return {
         error: {
-          message: error.message || 'Error al actualizar la pista',
-          details: error.details,
-          hint: error.hint
+          message: pgError.message || 'Error al actualizar la cancha',
+          details: pgError.details,
+          hint: pgError.hint
         }
       }
     }
-  }
+  },
 
-  async updateCourtStatus(courtId: string, isActive: boolean) {
+  async createCourt(data: CreateCourtDTO): Promise<ServiceResponse<void>> {
     try {
-      console.log('📍 Actualizando estado de pista:', { courtId, isActive })
+      // Convertir los datos al formato correcto para Supabase
+      const duration_pricing = Object.entries(data.duration_pricing).reduce((acc, [key, value]) => {
+        const numValue = Number(value)
+        if (!isNaN(numValue)) {
+          acc[key] = numValue
+        }
+        return acc
+      }, {} as Record<string, number>)
 
+      const available_durations = Array.isArray(data.available_durations)
+        ? data.available_durations
+            .map(d => Number(d))
+            .filter(d => !isNaN(d))
+            .sort((a, b) => a - b)
+        : []
+
+      const courtData = {
+        name: data.name.trim(),
+        branch_id: data.branch_id,
+        sport: data.sport,
+        court_type: data.court_type,
+        surface: data.surface,
+        is_active: data.is_active,
+        duration_pricing,
+        custom_pricing: data.custom_pricing,
+        available_durations,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      console.log('Datos a crear:', courtData)
+
+      const { error } = await supabase
+        .from('courts')
+        .insert([courtData])
+
+      if (error) {
+        console.error('Error de Supabase:', error)
+        throw error
+      }
+
+      return {}
+    } catch (error) {
+      console.error('Error al crear la cancha:', error)
+      const pgError = error as PostgrestError
+      return {
+        error: {
+          message: pgError.message || 'Error al crear la cancha',
+          details: pgError.details,
+          hint: pgError.hint
+        }
+      }
+    }
+  },
+
+  async updateCourtStatus(courtId: string, isActive: boolean): Promise<ServiceResponse<void>> {
+    try {
       const { error } = await supabase
         .from('courts')
         .update({ 
@@ -220,24 +254,18 @@ export class CourtService {
         })
         .eq('id', courtId)
 
-      if (error) {
-        console.error('❌ Error de Supabase:', error)
-        throw error
-      }
-
-      console.log('✅ Estado de pista actualizado exitosamente')
-      return { error: null }
+      if (error) throw error
+      return {}
     } catch (error) {
-      console.error('❌ Error al actualizar estado de pista:', error)
+      console.error('Error al actualizar el estado:', error)
+      const pgError = error as PostgrestError
       return {
         error: {
-          message: error.message || 'Error al actualizar el estado de la pista',
-          details: error.details,
-          hint: error.hint
+          message: pgError.message || 'Error al actualizar el estado',
+          details: pgError.details,
+          hint: pgError.hint
         }
       }
     }
   }
-}
-
-export const courtService = new CourtService() 
+} 

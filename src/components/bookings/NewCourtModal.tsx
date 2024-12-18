@@ -85,20 +85,17 @@ const courtFeatures = [
 // Añadimos un tipo para los pasos
 type Step = 'court' | 'pricing';
 
-const initialFormData = {
+const defaultFormData = {
   name: '',
+  branch_id: '',
+  sport: 'padel' as const,
+  court_type: 'indoor' as const,
   surface: 'crystal',
-  isIndoor: false,
-  hasLighting: false,
-  isActive: true,
-  availableDurations: [60],
-  pricing: defaultPricing,
-  sport: 'padel',
-  courtType: 'indoor',
-  features: [],
-  durationPricing: {},
-  customPricing: {},
-} as const
+  is_active: true,
+  duration_pricing: {},
+  custom_pricing: {} as Court['custom_pricing'],
+  available_durations: [60]
+}
 
 export function NewCourtModal({ 
   isOpen, 
@@ -108,31 +105,34 @@ export function NewCourtModal({
   editingCourt,
   mode = 'create' 
 }: NewCourtModalProps) {
-  const [formData, setFormData] = useState<Omit<Court, 'id'>>(initialFormData)
+  const [formData, setFormData] = useState<Omit<Court, 'id'>>(defaultFormData)
   const [currentStep, setCurrentStep] = useState<Step>('court')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [newDuration, setNewDuration] = useState<number | null>(null)
 
   useEffect(() => {
-    if (isOpen) {
-      if (editingCourt && mode === 'edit') {
-        const { id, ...courtData } = editingCourt
-        setFormData(courtData)
-      } else if (mode === 'create') {
-        setFormData(initialFormData)
-      }
-      setCurrentStep('court')
+    if (isOpen && editingCourt) {
+      setFormData({
+        ...editingCourt,
+        duration_pricing: editingCourt.duration_pricing || {},
+        custom_pricing: editingCourt.custom_pricing || {},
+        available_durations: editingCourt.available_durations || [60]
+      })
+    } else {
+      setFormData(defaultFormData)
     }
-  }, [isOpen, editingCourt, mode])
+    setCurrentStep('court')
+  }, [isOpen, editingCourt])
 
   useEffect(() => {
     if (!isOpen) {
       setShowDeleteConfirm(false)
+      setCurrentStep('court')
     }
   }, [isOpen])
 
   const isFirstStepValid = () => {
-    return formData.name.trim() !== '' && formData.availableDurations.length > 0
+    return formData.name.trim() !== '' && formData.available_durations.length > 0
   }
 
   const handleNext = () => {
@@ -149,8 +149,20 @@ export function NewCourtModal({
 
   const handleSave = () => {
     if (!isFirstStepValid()) return
-    onSave(formData)
-    onClose()
+
+    // Asegurarse de que cada duración tenga un precio
+    const duration_pricing = { ...formData.duration_pricing }
+    formData.available_durations.forEach(duration => {
+      const key = duration.toString()
+      if (!(key in duration_pricing)) {
+        duration_pricing[key] = 0
+      }
+    })
+
+    onSave({
+      ...formData,
+      duration_pricing
+    })
   }
 
   const handleDelete = () => {
@@ -323,9 +335,9 @@ export function NewCourtModal({
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <h3 className="text-sm font-medium">Duraciones disponibles</h3>
-                            {formData.availableDurations.length > 0 && (
+                            {formData.available_durations.length > 0 && (
                               <button
-                                onClick={() => setFormData(prev => ({ ...prev, availableDurations: [] }))}
+                                onClick={() => setFormData(prev => ({ ...prev, available_durations: [] }))}
                                 className={cn(
                                   "text-xs text-gray-400",
                                   "hover:text-gray-600",
@@ -346,15 +358,15 @@ export function NewCourtModal({
                                 onClick={() => {
                                   setFormData(prev => ({
                                     ...prev,
-                                    availableDurations: prev.availableDurations.includes(duration)
-                                      ? prev.availableDurations.filter(d => d !== duration)
-                                      : [...prev.availableDurations, duration].sort((a, b) => a - b)
-                                  }));
+                                    available_durations: prev.available_durations.includes(duration)
+                                      ? prev.available_durations.filter(d => d !== duration)
+                                      : [...prev.available_durations, duration].sort((a, b) => a - b)
+                                  }))
                                 }}
                                 className={cn(
                                   "h-9 px-4 rounded-md text-sm transition-all duration-200",
                                   "border hover:border-gray-400",
-                                  formData.availableDurations.includes(duration)
+                                  formData.available_durations.includes(duration)
                                     ? "bg-gray-900 text-white border-transparent hover:bg-gray-800"
                                     : "bg-white text-gray-700 border-gray-200"
                                 )}
@@ -379,9 +391,9 @@ export function NewCourtModal({
                                     if (newDuration >= 1) {
                                       setFormData(prev => ({
                                         ...prev,
-                                        availableDurations: prev.availableDurations.includes(newDuration)
-                                          ? prev.availableDurations
-                                          : [...prev.availableDurations, newDuration].sort((a, b) => a - b)
+                                        available_durations: prev.available_durations.includes(newDuration)
+                                          ? prev.available_durations
+                                          : [...prev.available_durations, newDuration].sort((a, b) => a - b)
                                       }))
                                       setNewDuration(null) // Limpiar el input
                                     }
@@ -411,13 +423,13 @@ export function NewCourtModal({
                           </div>
 
                           {/* Duraciones seleccionadas */}
-                          {formData.availableDurations.length > 0 && (
+                          {formData.available_durations.length > 0 && (
                             <div className="pt-2 space-y-2">
                               <span className="text-xs text-gray-500">
                                 Duraciones seleccionadas
                               </span>
                               <div className="flex flex-wrap gap-1.5">
-                                {formData.availableDurations.sort((a, b) => a - b).map((duration) => (
+                                {formData.available_durations.sort((a, b) => a - b).map((duration) => (
                                   <div
                                     key={duration}
                                     className={cn(
@@ -433,8 +445,8 @@ export function NewCourtModal({
                                       onClick={() => {
                                         setFormData(prev => ({
                                           ...prev,
-                                          availableDurations: prev.availableDurations.filter(d => d !== duration)
-                                        }));
+                                          available_durations: prev.available_durations.filter(d => d !== duration)
+                                        }))
                                       }}
                                       className={cn(
                                         "w-4 h-4 rounded-sm",
@@ -455,34 +467,25 @@ export function NewCourtModal({
                       </div>
                     </motion.div>
                   ) : (
-                    <motion.div
-                      key="pricing-step"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="p-6 space-y-8"
-                    >
+                    <div className="p-6">
                       <DurationPricing
-                        durations={formData.availableDurations}
-                        pricing={formData.durationPricing}
-                        onChange={(durationPricing) => setFormData(prev => ({ 
-                          ...prev, 
-                          durationPricing 
-                        }))}
+                        durations={formData.available_durations}
+                        pricing={formData.duration_pricing}
+                        onChange={(pricing) => setFormData(prev => ({ ...prev, duration_pricing: pricing }))}
                       />
 
                       <div className="pt-6 border-t">
                         <CustomPricing
-                          pricing={formData.customPricing || {}}
-                          onChange={(customPricing) => setFormData(prev => ({
+                          pricing={formData.custom_pricing}
+                          onChange={(newCustomPricing) => setFormData(prev => ({
                             ...prev,
-                            customPricing
+                            custom_pricing: newCustomPricing
                           }))}
-                          basePricing={formData.durationPricing}
-                          availableDurations={formData.availableDurations}
+                          basePricing={formData.duration_pricing}
+                          availableDurations={formData.available_durations}
                         />
                       </div>
-                    </motion.div>
+                    </div>
                   )}
                 </AnimatePresence>
               </motion.div>

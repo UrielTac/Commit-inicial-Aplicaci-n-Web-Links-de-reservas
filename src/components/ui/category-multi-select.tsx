@@ -17,14 +17,14 @@ interface Category {
 }
 
 export interface CategoryMultiSelectProps {
-  value: string[]
-  onChange: (value: string[]) => void
+  value?: string[]
+  onChange?: (value: string[]) => void
   categories: Category[]
   placeholder?: string
 }
 
 export function CategoryMultiSelect({ 
-  value, 
+  value = [], 
   onChange, 
   categories,
   placeholder = "Seleccionar..."
@@ -44,8 +44,10 @@ export function CategoryMultiSelect({
   }, [])
 
   const getDisplayValue = () => {
-    if (value.length === 0) return placeholder
-    
+    if (!value || value.length === 0) {
+      return placeholder
+    }
+
     const selectedNames = value.map(id => {
       for (const category of categories) {
         const option = category.options.find(opt => opt.id === id)
@@ -70,7 +72,7 @@ export function CategoryMultiSelect({
       >
         <span className={cn(
           "text-sm truncate",
-          value.length === 0 && "text-gray-400"
+          (!value || value.length === 0) && "text-gray-400"
         )}>
           {getDisplayValue()}
         </span>
@@ -103,7 +105,7 @@ export function CategoryMultiSelect({
                 "w-full px-3 py-2 text-left text-sm rounded-md",
                 "transition-colors duration-200",
                 "hover:bg-gray-50",
-                value.length === 0 ? "font-medium text-gray-900" : "text-gray-700"
+                (!value || value.length === 0) ? "font-medium text-gray-900" : "text-gray-700"
               )}
             >
               Ninguna
@@ -122,21 +124,29 @@ export function CategoryMultiSelect({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      const newValue = value.includes(option.id)
-                        ? value.filter(v => v !== option.id)
-                        : [...value, option.id]
-                      onChange(newValue)
+                      const newValue = value || []
+                      const isSelected = newValue.includes(option.id)
+                      
+                      let updatedValue: string[]
+                      if (isSelected) {
+                        updatedValue = newValue.filter(x => x !== option.id)
+                      } else {
+                        updatedValue = [...newValue, option.id]
+                      }
+                      
+                      onChange?.(updatedValue)
+                      setIsOpen(false)
                     }}
                     className={cn(
                       "w-full px-3 py-2 text-left text-sm rounded-md",
                       "transition-colors duration-200",
                       "hover:bg-gray-50",
-                      value.includes(option.id) ? "font-medium text-gray-900" : "text-gray-700"
+                      value?.includes(option.id) ? "font-medium text-gray-900" : "text-gray-700"
                     )}
                   >
                     <span className="flex items-center justify-between">
                       {option.name}
-                      {value.includes(option.id) && (
+                      {value?.includes(option.id) && (
                         <IconCheck className="h-4 w-4" />
                       )}
                     </span>

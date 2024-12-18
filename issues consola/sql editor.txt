@@ -1,0 +1,66 @@
+create table members (
+  id uuid primary key default uuid_generate_v4(),
+  branch_id uuid references branches(id) not null,
+  first_name text not null,
+  last_name text not null,
+  email text unique not null,
+  phone text,
+  gender text,
+  notes text,
+  status text default 'Sin Plan',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+
+alter table members enable row level security;
+
+create policy "Members are viewable by branch" on members
+  for select using (true);
+
+create policy "Members can be inserted by authenticated users" on members
+  for insert with check (true);
+
+create policy "Members can be updated by authenticated users" on members
+  for update using (true);
+
+create or replace function update_updated_at_column()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+
+create trigger update_members_updated_at
+  before update on members
+  for each row
+  execute function update_updated_at_column();
+
+-- Primero eliminamos la restricción existente
+ALTER TABLE members 
+DROP CONSTRAINT IF EXISTS members_branch_id_fkey;
+
+-- 3. Creamos la nueva restricción con la referencia correcta
+ALTER TABLE members 
+ADD CONSTRAINT members_branch_id_fkey 
+FOREIGN KEY (branch_id) 
+REFERENCES sedes(id) 
+ON DELETE RESTRICT 
+ON UPDATE CASCADE;
+
+-- Eliminar la restricción de clave foránea si existe
+ALTER TABLE members 
+DROP CONSTRAINT IF EXISTS members_branch_id_fkey;
+
+CREATE POLICY "Todos pueden ver los miembros" 
+ON members FOR SELECT 
+TO authenticated 
+USING (true);
+
+CREATE POLICY "Usuarios autenticados pueden crear miembros" 
+ON members FOR INSERT 
+TO authenticated 
+WITH CHECK (true);
+

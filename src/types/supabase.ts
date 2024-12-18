@@ -1,119 +1,126 @@
-export type WeekSchedule = {
-  [key: string]: {
-    isOpen: boolean
-    timeRanges: Array<{
-      openTime: string
-      closeTime: string
-    }>
-  }
-}
-
 export interface Database {
   public: {
     Tables: {
-      empresas: {
+      courts: {
         Row: {
           id: string
           name: string
-          business_name: string | null
-          tax_id: string | null
-          email: string | null
-          phone: string | null
-          address: string | null
-          city: string | null
-          state: string | null
-          country: string | null
-          logo_url: string | null
+          branch_id: string
+          sport: 'padel' | 'tennis' | 'badminton' | 'pickleball' | 'squash'
+          court_type: 'indoor' | 'outdoor' | 'covered'
+          surface: 'crystal' | 'synthetic' | 'clay' | 'grass' | 'rubber' | 'concrete' | 'panoramic' | 'premium'
+          features: string[]
           is_active: boolean
-          settings: Record<string, any>
+          available_durations: number[]
+          duration_pricing: Record<string, number>
+          custom_pricing: Record<string, any>
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           name: string
-          business_name?: string | null
-          tax_id?: string | null
-          email?: string | null
-          phone?: string | null
-          address?: string | null
-          city?: string | null
-          state?: string | null
-          country?: string | null
-          logo_url?: string | null
+          branch_id: string
+          sport: 'padel' | 'tennis' | 'badminton' | 'pickleball' | 'squash'
+          court_type: 'indoor' | 'outdoor' | 'covered'
+          surface: 'crystal' | 'synthetic' | 'clay' | 'grass' | 'rubber' | 'concrete' | 'panoramic' | 'premium'
+          features?: string[]
           is_active?: boolean
-          settings?: Record<string, any>
+          available_durations?: number[]
+          duration_pricing?: Record<string, number>
+          custom_pricing?: Record<string, any>
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           name?: string
-          business_name?: string | null
-          tax_id?: string | null
-          email?: string | null
-          phone?: string | null
-          address?: string | null
-          city?: string | null
-          state?: string | null
-          country?: string | null
-          logo_url?: string | null
+          branch_id?: string
+          sport?: 'padel' | 'tennis' | 'badminton' | 'pickleball' | 'squash'
+          court_type?: 'indoor' | 'outdoor' | 'covered'
+          surface?: 'crystal' | 'synthetic' | 'clay' | 'grass' | 'rubber' | 'concrete' | 'panoramic' | 'premium'
+          features?: string[]
           is_active?: boolean
-          settings?: Record<string, any>
+          available_durations?: number[]
+          duration_pricing?: Record<string, number>
+          custom_pricing?: Record<string, any>
           created_at?: string
           updated_at?: string
         }
-      }
-      sedes: {
+      },
+      bookings: {
         Row: {
           id: string
-          organization_id: string
-          name: string
-          address: string | null
-          phone: string | null
-          manager_id: string | null
-          opening_hours: WeekSchedule
-          is_active: boolean
-          settings: Record<string, any>
+          court_id: string
+          date: string
+          start_time: string
+          end_time: string
+          title: string
+          description: string | null
+          total_price: number
+          rental_items: {
+            item_id: string
+            quantity: number
+            price: number
+          }[]
+          participants: {
+            member_id: string
+            role: 'player' | 'guest'
+          }[]
+          payment_status: 'pending' | 'partial' | 'completed'
+          payment_method: 'cash' | 'stripe' | 'transfer' | null
+          deposit_amount: number | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          organization_id: string
-          name: string
-          address?: string | null
-          phone?: string | null
-          manager_id?: string | null
-          opening_hours?: WeekSchedule
-          is_active?: boolean
-          settings?: Record<string, any>
+          court_id: string
+          date: string
+          start_time: string
+          end_time: string
+          title: string
+          description?: string
+          total_price: number
+          rental_items?: {
+            item_id: string
+            quantity: number
+            price: number
+          }[]
+          participants: {
+            member_id: string
+            role: 'player' | 'guest'
+          }[]
+          payment_status: 'pending' | 'partial' | 'completed'
+          payment_method?: 'cash' | 'stripe' | 'transfer'
+          deposit_amount?: number
           created_at?: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          organization_id?: string
-          name?: string
-          address?: string | null
-          phone?: string | null
-          manager_id?: string | null
-          opening_hours?: WeekSchedule
-          is_active?: boolean
-          settings?: Record<string, any>
-          created_at?: string
+          court_id?: string
+          date?: string
+          start_time?: string
+          end_time?: string
+          title?: string
+          description?: string
+          total_price?: number
+          rental_items?: {
+            item_id: string
+            quantity: number
+            price: number
+          }[]
+          participants?: {
+            member_id: string
+            role: 'player' | 'guest'
+          }[]
+          payment_status?: 'pending' | 'partial' | 'completed'
+          payment_method?: 'cash' | 'stripe' | 'transfer'
+          deposit_amount?: number
           updated_at?: string
         }
       }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
+      // ... resto de las tablas
     }
   }
 } 
