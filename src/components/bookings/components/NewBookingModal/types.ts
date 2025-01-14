@@ -1,21 +1,39 @@
-export type BookingStep = 
-  | 'shift-info'
-  | 'class-details'
-  | 'class-schedule'
-  | 'class-payment-methods'
-  | 'confirmation'
-
-export interface Participant {
+export interface TimeSlot {
   id: string
-  name: string
-  email?: string
-  phone?: string
+  startTime: string
+  endTime: string
+  capacity: number
+  instructors: string[]
+  price: number
+  courtIds?: string[]
 }
+
+export interface ClassScheduleConfig {
+  isRecurring: boolean
+  startDate: Date | undefined
+  endDate: Date | undefined
+  weekDays: number[]
+  timeSlots: TimeSlot[]
+}
+
+export type BookingStep = 
+  | 'class-details'
+  | 'class-availability'
+  | 'class-schedule'
+  | 'date'
+  | 'time'
+  | 'payment'
+  | 'confirmation'
+  | 'participants'
+  | 'rentals'
+
+export type BookingType = 'class' | 'shift'
 
 export interface ClassDetails {
   name: string
   description: string
   visibility?: 'public' | 'private'
+  branchId?: string[]
 }
 
 export interface TimeSelection {
@@ -23,25 +41,36 @@ export interface TimeSelection {
   endTime: string
 }
 
-export interface ClassScheduleConfig {
-  isRecurring: boolean
-  startDate?: Date
-  endDate?: Date
-  weekDays: number[]
-  timeSlots: TimeSelection[]
+export interface PaymentMethod {
+  id: string
+  name: string
+  icon: string
 }
 
 export interface ClassPaymentConfig {
-  pricePerClass: number
-  paymentMethods: ('cash' | 'card' | 'transfer')[]
-  isAdvancePaymentRequired: boolean
-  advancePaymentAmount?: number
+  pricePerSession: number
+  currency: string
+  paymentMethod: 'cash' | 'card' | 'transfer'
+  paymentStatus: 'pending' | 'completed' | 'failed'
+  availableMethods: PaymentMethod[]
 }
 
-export interface BookingFormData {
-  participants: string[]
-  paymentMethods: ('cash' | 'card' | 'transfer')[]
-  classDetails?: ClassDetails
-  scheduleConfig?: ClassScheduleConfig
-  paymentConfig?: ClassPaymentConfig
+export interface BookingState {
+  currentStep: BookingStep
+  selectedBookingType: BookingType
+  selectedDate?: Date
+  selectedCourts: string[]
+  classDetails: ClassDetails
+  timeSelection?: TimeSelection
+  classPaymentConfig: ClassPaymentConfig
+  scheduleConfig: ClassScheduleConfig
+  isStepValid: boolean
+}
+
+export interface BookingStateActions {
+  updateState: (updates: Partial<BookingState>) => void
+  resetState: () => void
+  handleContinue: () => void
+  handleBack: () => void
+  validateStep: (step: BookingStep) => boolean
 } 

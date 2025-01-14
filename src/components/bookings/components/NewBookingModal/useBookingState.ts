@@ -1,92 +1,120 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import type { 
   BookingStep, 
   BookingType,
   ClassDetails,
-  ParticipantMode,
-  Participant,
-  ClassSessionsConfig,
-  ShiftDetails,
-  ShiftPayment,
   TimeSelection,
-  CourtAvailability 
 } from './types'
 
-export function useBookingState() {
-  const [currentStep, setCurrentStep] = useState<BookingStep>('booking-type')
-  const [selectedBookingType, setSelectedBookingType] = useState<BookingType>()
-  const [selectedDate, setSelectedDate] = useState<Date>()
-  const [selectedCourts, setSelectedCourts] = useState<string[]>([])
-  const [classDetails, setClassDetails] = useState<ClassDetails>({
+interface BookingState {
+  currentStep: BookingStep
+  selectedBookingType: BookingType | undefined
+  selectedDate: Date | undefined
+  selectedCourts: string[]
+  classDetails: ClassDetails
+  timeSelection: TimeSelection | undefined
+  isStepValid: boolean
+}
+
+interface UseBookingStateReturn extends BookingState {
+  updateState: (updates: Partial<BookingState>) => void
+  resetState: () => void
+  handleContinue: () => void
+  handleBack: () => void
+  validateStep: (step: BookingStep) => boolean
+}
+
+const initialState: BookingState = {
+  currentStep: 'booking-type',
+  selectedBookingType: undefined,
+  selectedDate: undefined,
+  selectedCourts: [],
+  classDetails: {
     name: '',
     description: ''
-  })
-  // ... resto del estado
+  },
+  timeSelection: undefined,
+  isStepValid: false
+}
 
-  const handleContinue = () => {
-    switch (currentStep) {
-      case 'booking-type':
-        if (selectedBookingType) {
-          setCurrentStep(selectedBookingType === 'shift' ? 'date' : 'class-details')
-        }
-        break
-      case 'class-details':
-        if (classDetails.name.trim()) {
-          setCurrentStep('class-availability')
-        }
-        break
-      // ... resto de la lógica
-    }
-  }
+export function useBookingState(): UseBookingStateReturn {
+  const [state, setState] = useState<BookingState>(initialState)
 
-  const handleBack = () => {
-    switch (currentStep) {
-      case 'class-details':
-        setCurrentStep('booking-type')
-        break
-      case 'class-availability':
-        setCurrentStep('class-details')
-        break
-      // ... resto de la lógica
-    }
-  }
+  const updateState = useCallback((updates: Partial<BookingState>) => {
+    setState(prev => ({ ...prev, ...updates }))
+  }, [])
 
-  const isStepValid = (step: BookingStep): boolean => {
+  const validateStep = useCallback((step: BookingStep): boolean => {
     switch (step) {
       case 'booking-type':
-        return !!selectedBookingType
+        return !!state.selectedBookingType
       case 'class-details':
-        return !!classDetails.name.trim()
+        return !!state.classDetails.name.trim()
       case 'date':
-        return !!selectedDate
+        return !!state.selectedDate
       case 'time':
-        return selectedCourts.length > 0 && !!timeSelection
-      // ... resto de validaciones
+        return state.selectedCourts.length > 0 && !!state.timeSelection
       default:
         return false
     }
-  }
+  }, [state])
+
+  const handleContinue = useCallback(() => {
+    switch (state.currentStep) {
+      case 'booking-type':
+        if (state.selectedBookingType) {
+          const nextStep = state.selectedBookingType === 'shift' ? 'date' : 'class-details'
+          updateState({ 
+            currentStep: nextStep,
+            isStepValid: validateStep(nextStep)
+          })
+        }
+        break
+      case 'class-details':
+        if (state.classDetails.name.trim()) {
+          const nextStep = 'class-availability'
+          updateState({ 
+            currentStep: nextStep,
+            isStepValid: validateStep(nextStep)
+          })
+        }
+        break
+      default:
+        break
+    }
+  }, [state.currentStep, state.selectedBookingType, state.classDetails.name, updateState, validateStep])
+
+  const handleBack = useCallback(() => {
+    switch (state.currentStep) {
+      case 'class-details':
+        const prevStep1 = 'booking-type'
+        updateState({ 
+          currentStep: prevStep1,
+          isStepValid: validateStep(prevStep1)
+        })
+        break
+      case 'class-availability':
+        const prevStep2 = 'class-details'
+        updateState({ 
+          currentStep: prevStep2,
+          isStepValid: validateStep(prevStep2)
+        })
+        break
+      default:
+        break
+    }
+  }, [state.currentStep, updateState, validateStep])
+
+  const resetState = useCallback(() => {
+    setState(initialState)
+  }, [])
 
   return {
-    // Estado
-    currentStep,
-    selectedBookingType,
-    selectedDate,
-    selectedCourts,
-    classDetails,
-    // ... resto del estado
-
-    // Acciones
-    setCurrentStep,
-    setSelectedBookingType,
-    setSelectedDate,
-    setSelectedCourts,
-    setClassDetails,
-    // ... resto de setters
-
-    // Métodos
+    ...state,
+    updateState,
+    resetState,
     handleContinue,
     handleBack,
-    isStepValid,
+    validateStep
   }
 }

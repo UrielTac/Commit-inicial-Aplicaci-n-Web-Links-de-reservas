@@ -45,7 +45,8 @@ CREATE TABLE public.payments (
     notes TEXT,
     refund_reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(booking_id, payment_type)
 );
 
 -- 5. Crear índices
@@ -53,92 +54,208 @@ CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON public.payments(booking_id
 CREATE INDEX IF NOT EXISTS idx_payments_status ON public.payments(payment_status);
 CREATE INDEX IF NOT EXISTS idx_payments_created_at ON public.payments(created_at);
 
--- 6. Función para el trigger de pago inicial
+-- 6. Script de migración segura
+DO $$ 
+BEGIN
+    -- 1. Verificar si la restricción única ya existe
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'payments_booking_id_payment_type_key'
+    ) THEN
+        -- 2. Limpiar posibles duplicados antes de agregar la restricción
+        WITH duplicates AS (
+            SELECT booking_id, payment_type, 
+                   (array_agg(id ORDER BY created_at ASC))[1] as keep_id
+            FROM public.payments
+            GROUP BY booking_id, payment_type
+            HAVING COUNT(*) > 1
+        )
+        DELETE FROM public.payments p
+        USING duplicates d
+        WHERE p.booking_id = d.booking_id 
+        AND p.payment_type = d.payment_type 
+        AND p.id != d.keep_id;
+
+        -- 3. Agregar la restricción única
+        ALTER TABLE public.payments
+        ADD CONSTRAINT payments_booking_id_payment_type_key UNIQUE(booking_id, payment_type);
+    END IF;
+END $$;
+
+-- 7. Verificar y actualizar el tipo si es necesario
+DO $$ 
+BEGIN
+    -- Asegurarnos de que estamos usando el tipo correcto
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_status_enum') THEN
+        CREATE TYPE payment_status_enum AS ENUM (
+            'pending',
+            'partial',
+            'completed',
+            'refunded',
+            'partially_refunded'
+        );
+    END IF;
+END $$;
+
+-- 8. Función para el trigger de pago inicial
 CREATE OR REPLACE FUNCTION create_initial_payment()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_payment_id UUID;
 BEGIN
-    IF (NEW.deposit_amount > 0 OR NEW.payment_status = 'completed') THEN
+    -- Crear registro de pago basado en el estado de la reserva
+    INSERT INTO public.payments (
+        booking_id,
+        amount,
+        payment_type,
+        payment_method,
+        payment_status,
+        notes,
+        created_at
+    ) VALUES (
+        NEW.id,
+        CASE 
+            WHEN NEW.payment_status = 'completed' THEN NEW.total_price
+            WHEN NEW.payment_status = 'partial' THEN NEW.deposit_amount
+            ELSE 0
+        END,
+        CASE 
+            WHEN NEW.payment_status = 'completed' THEN 'booking'::payment_type
+            WHEN NEW.payment_status = 'partial' THEN 'deposit'::payment_type
+            ELSE 'booking'::payment_type
+        END,
+        COALESCE(NEW.payment_method, 'cash')::payment_method_enum,
+        (CASE 
+            WHEN NEW.payment_status = 'completed' THEN 'completed'
+            WHEN NEW.payment_status = 'partial' AND NEW.deposit_amount > 0 THEN 'partial'
+            ELSE 'pending'
+        END)::payment_status_enum,
+        CASE 
+            WHEN NEW.payment_status = 'completed' THEN 'Pago completo de reserva'
+            WHEN NEW.payment_status = 'partial' THEN 'Seña de reserva'
+            ELSE 'Reserva sin pago inicial'
+        END,
+        NEW.created_at
+    ) RETURNING id INTO v_payment_id;
+
+    -- Si hay un depósito pero no es el pago completo, crear un registro pendiente por el restante
+    IF NEW.payment_status = 'partial' AND NEW.deposit_amount > 0 AND NEW.deposit_amount < NEW.total_price THEN
         INSERT INTO public.payments (
             booking_id,
             amount,
             payment_type,
             payment_method,
             payment_status,
+            notes,
             created_at
         ) VALUES (
             NEW.id,
-            CASE 
-                WHEN NEW.payment_status = 'completed' THEN NEW.total_price
-                ELSE NEW.deposit_amount
-            END,
-            CASE 
-                WHEN NEW.payment_status = 'completed' THEN 'booking'::payment_type
-                ELSE 'deposit'::payment_type
-            END,
-            NEW.payment_method::payment_method_enum,
-            CASE 
-                WHEN NEW.payment_status::text = 'completed' THEN 'completed'::payment_status_type
-                WHEN NEW.payment_status::text = 'partial' THEN 'partial'::payment_status_type
-                ELSE 'pending'::payment_status_type
-            END,
+            NEW.total_price - NEW.deposit_amount,
+            'remaining'::payment_type,
+            COALESCE(NEW.payment_method, 'cash')::payment_method_enum,
+            'pending'::payment_status_enum,
+            'Monto restante pendiente',
             NEW.created_at
-        );
+        )
+        ON CONFLICT (booking_id, payment_type) 
+        DO UPDATE SET
+            amount = EXCLUDED.amount,
+            updated_at = NOW();
     END IF;
+
     RETURN NEW;
+EXCEPTION
+    WHEN unique_violation THEN
+        -- Si hay una violación única, actualizamos el registro existente
+        UPDATE public.payments
+        SET 
+            amount = CASE 
+                WHEN NEW.payment_status = 'completed' THEN NEW.total_price
+                WHEN NEW.payment_status = 'partial' THEN NEW.deposit_amount
+                ELSE 0
+            END,
+            payment_status = (CASE 
+                WHEN NEW.payment_status = 'completed' THEN 'completed'
+                WHEN NEW.payment_status = 'partial' AND NEW.deposit_amount > 0 THEN 'partial'
+                ELSE 'pending'
+            END)::payment_status_enum,
+            updated_at = NOW()
+        WHERE booking_id = NEW.id;
+        RETURN NEW;
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Error al crear el pago inicial: %', SQLERRM;
 END;
 $$ LANGUAGE plpgsql;
 
--- 7. Crear trigger
+-- 9. Crear o reemplazar el trigger
 DROP TRIGGER IF EXISTS create_initial_payment_trigger ON public.bookings;
 CREATE TRIGGER create_initial_payment_trigger
     AFTER INSERT ON public.bookings
     FOR EACH ROW
     EXECUTE FUNCTION create_initial_payment();
 
--- 8. Función para actualizar bookings después de un nuevo pago
-CREATE OR REPLACE FUNCTION update_booking_after_payment()
+-- 10. Función para actualizar pagos cuando se modifica una reserva
+CREATE OR REPLACE FUNCTION update_booking_payments()
 RETURNS TRIGGER AS $$
-DECLARE
-    total_paid NUMERIC;
-    booking_total NUMERIC;
 BEGIN
-    -- Calcular el total pagado para esta reserva
-    SELECT COALESCE(SUM(
-        CASE 
-            WHEN payment_type = 'refund' THEN -amount 
-            ELSE amount 
-        END
-    ), 0)
-    INTO total_paid
-    FROM payments
-    WHERE booking_id = NEW.booking_id
-    AND payment_status = 'completed';
-
-    -- Obtener el precio total de la reserva
-    SELECT total_price INTO booking_total
-    FROM bookings
-    WHERE id = NEW.booking_id;
-
-    -- Actualizar el estado de la reserva basado en el total pagado
-    UPDATE bookings
-    SET 
+    -- Si cambia el estado de pago o el monto
+    IF (OLD.payment_status != NEW.payment_status) OR 
+       (OLD.total_price != NEW.total_price) OR 
+       (OLD.deposit_amount != NEW.deposit_amount) THEN
+        
+        -- Actualizar el pago existente
+        UPDATE public.payments
+        SET amount = CASE 
+                WHEN NEW.payment_status = 'completed' THEN NEW.total_price
+                WHEN NEW.payment_status = 'partial' THEN NEW.deposit_amount
+                ELSE 0
+            END,
         payment_status = CASE 
-            WHEN total_paid >= booking_total THEN 'completed'
-            WHEN total_paid > 0 THEN 'partial'
-            ELSE 'pending'
-        END,
-        deposit_amount = total_paid,
+                WHEN NEW.payment_status = 'completed' THEN 'completed'::payment_status_type
+                WHEN NEW.payment_status = 'partial' AND NEW.deposit_amount > 0 THEN 'partial'::payment_status_type
+                ELSE 'pending'::payment_status_type
+            END,
+            payment_method = COALESCE(NEW.payment_method, 'cash')::payment_method_enum,
         updated_at = NOW()
-    WHERE id = NEW.booking_id;
+        WHERE booking_id = NEW.id AND payment_type = 'booking'::payment_type;
+
+        -- Actualizar o crear el registro de pago restante
+        IF NEW.payment_status = 'partial' AND NEW.deposit_amount > 0 AND NEW.deposit_amount < NEW.total_price THEN
+            INSERT INTO public.payments (
+                booking_id,
+                amount,
+                payment_type,
+                payment_method,
+                payment_status,
+                notes,
+                created_at
+            ) VALUES (
+                NEW.id,
+                NEW.total_price - NEW.deposit_amount,
+                'remaining'::payment_type,
+                COALESCE(NEW.payment_method, 'cash')::payment_method_enum,
+                'pending'::payment_status_type,
+                'Monto restante pendiente',
+                NOW()
+            )
+            ON CONFLICT (booking_id, payment_type) 
+            DO UPDATE SET
+                amount = NEW.total_price - NEW.deposit_amount,
+                updated_at = NOW();
+        END IF;
+    END IF;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- 9. Crear trigger para actualizar bookings
-DROP TRIGGER IF EXISTS update_booking_after_payment_trigger ON public.payments;
-CREATE TRIGGER update_booking_after_payment_trigger
-    AFTER INSERT OR UPDATE ON public.payments
+-- 11. Crear trigger para actualización de pagos
+DROP TRIGGER IF EXISTS update_booking_payments_trigger ON public.bookings;
+CREATE TRIGGER update_booking_payments_trigger
+    AFTER UPDATE ON public.bookings
     FOR EACH ROW
-    WHEN (NEW.payment_status = 'completed')
-    EXECUTE FUNCTION update_booking_after_payment();
+    WHEN (OLD.payment_status IS DISTINCT FROM NEW.payment_status OR 
+          OLD.total_price IS DISTINCT FROM NEW.total_price OR 
+          OLD.deposit_amount IS DISTINCT FROM NEW.deposit_amount)
+    EXECUTE FUNCTION update_booking_payments();

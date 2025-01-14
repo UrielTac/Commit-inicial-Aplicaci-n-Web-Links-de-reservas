@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { format } from 'date-fns'
 import { IconPlus, IconMinus } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import { useItems } from '@/hooks/useItems'
@@ -10,159 +11,102 @@ import { cn } from "@/lib/utils"
 import { Label } from '@/components/ui/label'
 import { motion } from 'framer-motion'
 import { timeToMinutes } from '@/lib/time-utils'
+import { useRentalContext } from '@/contexts/RentalContext'
+import { supabase } from '@/lib/supabase'
+import { checkFutureAvailability } from '@/services/bookingService'
+import { bookingService } from '@/services/bookingService'
+import { useDateContext } from "@/contexts/DateContext"
 
 interface RentalStepProps {
-  rentals: RentalSelection[]
-  onRentalChange: (rentals: RentalSelection[]) => void
-  startTime?: string
-  endTime?: string
-  duration?: number
+  startTime: string
+  endTime: string
+  durationInMinutes: number
+  date: string
 }
 
+// Definir la interfaz para el item con stock
+interface ItemWithStock extends Item {
+  availableStock: number;
+  baseStock: number;
+  reservedUnits: number;
+}
+
+// Mover fuera del componente las funciones de utilidad
+const validateDuration = (durationInMinutes: number): boolean => {
+  return typeof durationInMinutes === 'number' && !isNaN(durationInMinutes) && durationInMinutes > 0;
+};
+
+const getPriceForDuration = (item: Item, durationInMinutes: number): number | undefined => {
+  if (!item?.duration_pricing) return undefined;
+  return item.duration_pricing[String(durationInMinutes)];
+};
+
 export function RentalStep({ 
-  rentals = [], 
-  onRentalChange,
   startTime,
   endTime,
-  duration: propDuration
+  durationInMinutes: propDurationInMinutes,
+  date
 }: RentalStepProps) {
+  const { selectedDate } = useDateContext()
   const { currentBranch } = useBranchContext()
+  const { rentals, updateRentals } = useRentalContext()
   const [localRentals, setLocalRentals] = useState<RentalSelection[]>(rentals)
   const [customPrices, setCustomPrices] = useState<Record<string, number>>({})
-
-  // Calcular la duración actual de la reserva
-  const currentDuration = useMemo(() => {
-    // Si tenemos una duración proporcionada, usarla directamente
-    if (propDuration !== undefined) {
-      console.log('Usando duración proporcionada:', {
-        propDuration,
-        startTime,
-        endTime
-      })
-      return propDuration
-    }
-
-    // Si no hay tiempos definidos, intentar calcular desde startTime y endTime
-    if (!startTime || !endTime) {
-      console.log('Tiempos no definidos:', { startTime, endTime })
-      return 0
-    }
-
-    try {
-      const start = timeToMinutes(startTime)
-      const end = timeToMinutes(endTime)
-      const calculatedDuration = Math.max(0, end - start)
-
-      console.log('Cálculo de duración desde tiempos:', {
-        startTime,
-        endTime,
-        startMinutes: start,
-        endMinutes: end,
-        calculatedDuration
-      })
-
-      return calculatedDuration
-    } catch (error) {
-      console.error('Error calculando duración:', error)
-      return 0
-    }
-  }, [startTime, endTime, propDuration])
-
   const { data: items = [], isLoading, error } = useItems(currentBranch?.id)
+  const [itemsWithStock, setItemsWithStock] = useState<ItemWithStock[]>([])
+  const [isLoadingStock, setIsLoadingStock] = useState(true)
 
-  // Verificar si un item tiene precio configurado
-  const hasConfiguredPrice = useCallback((item: Item): boolean => {
-    if (!item.duration_pricing || !currentDuration) {
-      console.log('No hay duration_pricing o duración:', {
-        itemName: item.name,
-        hasDurationPricing: !!item.duration_pricing,
-        currentDuration,
-        durationPricingKeys: item.duration_pricing ? Object.keys(item.duration_pricing) : []
-      })
-      return false
+  // Calcular la duración internamente como backup
+  const calculatedDuration = useMemo(() => {
+    if (!startTime || !endTime) return 0;
+    try {
+      const startMinutes = timeToMinutes(startTime);
+      const endMinutes = timeToMinutes(endTime);
+      return Math.max(0, endMinutes - startMinutes);
+    } catch (error) {
+      console.error('Error calculando la duración:', error);
+      return 0;
     }
+  }, [startTime, endTime]);
 
-    // Convertir las duraciones a números y verificar si existe la duración actual
-    const availableDurations = Object.keys(item.duration_pricing)
-      .map(Number)
-      .sort((a, b) => a - b)
+  // Usar la duración proporcionada o la calculada como fallback
+  const durationInMinutes = useMemo(() => 
+    propDurationInMinutes > 0 ? propDurationInMinutes : calculatedDuration,
+    [propDurationInMinutes, calculatedDuration]
+  );
 
-    const durationKey = currentDuration.toString()
-    const price = item.duration_pricing[durationKey]
-    const hasExactPrice = price !== undefined && Number(price) > 0
-
-    console.log('Verificación de precio configurado:', {
-      itemName: item.name,
-      currentDuration,
-      durationKey,
-      price,
-      priceType: typeof price,
-      hasExactPrice,
-      availableDurations,
-      allPrices: item.duration_pricing
-    })
-
-    return hasExactPrice
-  }, [currentDuration])
+  // Verificar si un item tiene precio configurado para la duración actual
+  const hasConfiguredPrice = useCallback((item: Item): boolean => {
+    if (!validateDuration(durationInMinutes)) return false;
+    return getPriceForDuration(item, durationInMinutes) !== undefined;
+  }, [durationInMinutes]);
 
   // Función para calcular el precio base de un artículo
   const calculateBasePrice = useCallback((item: Item): number => {
-    // Si hay un precio personalizado para este item, usarlo
-    if (customPrices[item.id] !== undefined) {
-      console.log('Usando precio personalizado:', {
-        itemName: item.name,
-        customPrice: customPrices[item.id]
-      })
-      return customPrices[item.id]
-    }
+    if (!validateDuration(durationInMinutes)) return 0;
+    
+    const configuredPrice = getPriceForDuration(item, durationInMinutes);
+    if (configuredPrice !== undefined) return Number(configuredPrice);
+    
+    return customPrices[item.id] || 0;
+  }, [durationInMinutes, customPrices]);
 
-    // Si no hay duración o precios configurados, retornar 0
-    if (!item.duration_pricing || !currentDuration) {
-      console.log('No hay duration_pricing o duración para precio base:', {
-        itemName: item.name,
-        hasDurationPricing: !!item.duration_pricing,
-        currentDuration,
-        durationPricingKeys: item.duration_pricing ? Object.keys(item.duration_pricing) : []
-      })
-      return 0
-    }
-
-    // Obtener el precio exacto para la duración actual
-    const durationKey = currentDuration.toString()
-    const price = item.duration_pricing[durationKey]
-    const configuredPrice = Number(price)
-
-    console.log('Cálculo de precio base:', {
-      itemName: item.name,
-      currentDuration,
-      durationKey,
-      price,
-      priceType: typeof price,
-      configuredPrice,
-      isValidPrice: !isNaN(configuredPrice) && configuredPrice > 0,
-      allPrices: item.duration_pricing,
-      availableDurations: Object.keys(item.duration_pricing).map(Number).sort((a, b) => a - b)
-    })
-
-    return !isNaN(configuredPrice) && configuredPrice > 0 ? configuredPrice : 0
-  }, [currentDuration, customPrices])
+  // Manejar cambio de precio personalizado
+  const handleCustomPriceChange = useCallback((itemId: string, value: number | null) => {
+    setCustomPrices(prev => ({
+      ...prev,
+      [itemId]: value || 0
+    }));
+  }, []);
 
   // Renderizar el input de precio personalizado
-  const renderCustomPriceInput = (item: Item, duration: number, basePrice: number, hasConfigured: boolean) => {
-    const showCustomPrice = !hasConfigured
+  const renderCustomPriceInput = useCallback((item: Item) => {
+    const hasConfigured = hasConfiguredPrice(item);
+    const showCustomPrice = !hasConfigured && validateDuration(durationInMinutes);
 
-    console.log('Renderizando input de precio:', {
-      itemName: item.name,
-      duration,
-      basePrice,
-      hasConfigured,
-      showCustomPrice,
-      currentDuration,
-      availablePrices: item.duration_pricing
-    })
+    if (!showCustomPrice) return null;
 
-    if (!showCustomPrice) return null
-
+    const currentPrice = customPrices[item.id];
     return (
       <motion.div
         initial={{ opacity: 0, height: 0 }}
@@ -170,20 +114,18 @@ export function RentalStep({
         className="mt-2"
       >
         <Label className="text-xs text-gray-600">
-          {duration > 0 
-            ? `Precio por ${duration} minutos`
-            : 'Precio no disponible - Duración no válida'}
+          Precio personalizado para {durationInMinutes} minutos
         </Label>
         <input
           type="number"
           min="0"
           step="0.01"
-          value={customPrices[item.id] || ''}
+          value={currentPrice || ''}
           onChange={(e) => {
-            const value = parseFloat(e.target.value)
-            handleCustomPriceChange(item.id, isNaN(value) ? null : value)
+            const value = e.target.value === '' ? null : parseFloat(e.target.value);
+            handleCustomPriceChange(item.id, value);
           }}
-          placeholder={hasConfigured ? `Precio actual: ${basePrice}€` : "Ingrese el precio"}
+          placeholder="Ingrese el precio"
           className={cn(
             "mt-1 w-32 px-2 py-1",
             "rounded-md border border-gray-200 bg-white",
@@ -194,124 +136,276 @@ export function RentalStep({
             "[&::-webkit-outer-spin-button]:appearance-none",
             "[&::-webkit-inner-spin-button]:appearance-none"
           )}
-          disabled={duration === 0}
         />
       </motion.div>
-    )
-  }
+    );
+  }, [durationInMinutes, hasConfiguredPrice, customPrices, handleCustomPriceChange]);
 
-  useEffect(() => {
-    console.log('Estado actual de RentalStep:', {
-      currentDuration,
-      startTime,
-      endTime,
-      propDuration,
-      rentalsCount: localRentals.length,
-      itemsCount: items.length
-    })
-  }, [currentDuration, startTime, endTime, propDuration, localRentals, items])
+  // Memoizar cálculos de precios y totales
+  const memoizedPrices = useMemo(() => {
+    if (!items.length || !validateDuration(durationInMinutes)) return new Map();
+    
+    return new Map(items.map(item => [
+      item.id,
+      {
+        basePrice: getPriceForDuration(item, durationInMinutes) || customPrices[item.id] || 0,
+        hasConfigured: getPriceForDuration(item, durationInMinutes) !== undefined,
+        hasCustomPrice: customPrices[item.id] !== undefined
+      }
+    ]));
+  }, [items, durationInMinutes, customPrices]);
 
+  // Memoizar totales de rentals
+  const rentalTotals = useMemo(() => {
+    return localRentals.reduce((acc, rental) => {
+      const priceInfo = memoizedPrices.get(rental.itemId);
+      if (!priceInfo) return acc;
+      
+      return {
+        ...acc,
+        total: acc.total + (priceInfo.basePrice * rental.quantity),
+        items: [...acc.items, {
+          ...rental,
+          pricePerUnit: priceInfo.basePrice,
+          totalPrice: priceInfo.basePrice * rental.quantity
+        }]
+      };
+    }, { total: 0, items: [] as RentalSelection[] });
+  }, [localRentals, memoizedPrices]);
+
+  // Efecto optimizado para sincronizar rentals
   useEffect(() => {
-    if (!currentDuration) {
-      console.log('No hay duración válida para actualizar rentals')
-      return
+    if (!durationInMinutes || rentalTotals.items.length === 0) return;
+    
+    const shouldUpdate = rentalTotals.items.some((rental, idx) => {
+      const current = localRentals[idx];
+      return !current || 
+             current.price !== rental.totalPrice || 
+             current.pricePerUnit !== rental.pricePerUnit;
+    });
+
+    if (shouldUpdate) {
+      setLocalRentals(rentalTotals.items);
+      updateRentals(rentalTotals.items);
+    }
+  }, [durationInMinutes, rentalTotals, localRentals, updateRentals]);
+
+  // Optimizar renderPrice usando memoizedPrices
+  const renderPrice = useCallback((item: Item) => {
+    const priceInfo = memoizedPrices.get(item.id);
+    
+    if (!priceInfo || !validateDuration(durationInMinutes)) {
+      return <span className="text-sm text-gray-500">Seleccione duración</span>;
     }
 
-    // Sincronizar cambios locales con el estado padre
-    const rentalsWithPrices = localRentals.map(rental => {
-      const item = items.find(i => i.id === rental.itemId)
-      if (!item) return rental
+    if (priceInfo.hasConfigured || priceInfo.hasCustomPrice) {
+      return <span className="text-sm font-medium text-gray-900 whitespace-nowrap">{priceInfo.basePrice}€</span>;
+    }
 
-      const basePrice = calculateBasePrice(item)
-      const hasConfigured = hasConfiguredPrice(item)
+    return <span className="text-sm text-gray-500">Sin precio configurado</span>;
+  }, [memoizedPrices, durationInMinutes]);
 
-      console.log('Actualizando rental:', {
-        itemName: item.name,
-        duration: currentDuration,
-        basePrice,
-        hasConfiguredPrice: hasConfigured,
-        customPrice: customPrices[item.id],
-        availableDurations: Object.keys(item.duration_pricing || {}).map(Number).sort((a, b) => a - b)
-      })
-
-      return {
-        ...rental,
-        duration: currentDuration,
-        pricePerUnit: basePrice
-      }
-    })
-
-    onRentalChange(rentalsWithPrices)
-  }, [localRentals, items, onRentalChange, currentDuration, calculateBasePrice, hasConfiguredPrice, customPrices])
-
-  const handleQuantityChange = (itemId: string, change: number) => {
+  // Optimizar handleQuantityChange
+  const handleQuantityChange = useCallback((itemId: string, change: number) => {
     setLocalRentals(prev => {
-      const existingRental = prev.find(r => r.itemId === itemId)
-      const item = items.find(i => i.id === itemId)
+      const existingRental = prev.find(r => r.itemId === itemId);
+      const item = itemsWithStock.find(i => i.id === itemId);
+      const priceInfo = memoizedPrices.get(itemId);
       
-      if (!item) return prev
+      if (!item || !priceInfo) {
+        console.warn('Item no encontrado o sin precio configurado');
+        return prev;
+      }
 
       if (existingRental) {
-        const newQuantity = Math.max(0, existingRental.quantity + change)
+        const newQuantity = Math.max(0, existingRental.quantity + change);
         
-        // Verificar stock disponible
-        if (change > 0 && newQuantity > item.stock) {
-          toast.error('No hay suficiente stock disponible')
-          return prev
+        if (change > 0 && newQuantity > item.availableStock) {
+          toast.error(`No hay suficiente stock disponible. Máximo disponible: ${item.availableStock}`);
+          return prev;
         }
 
         if (newQuantity === 0) {
-          return prev.filter(r => r.itemId !== itemId)
+          const newRentals = prev.filter(r => r.itemId !== itemId);
+          updateRentals(newRentals);
+          return newRentals;
         }
 
-        return prev.map(r =>
+        const totalPrice = priceInfo.basePrice * newQuantity;
+        const updatedRentals = prev.map(r =>
           r.itemId === itemId
             ? { 
                 ...r, 
                 quantity: newQuantity,
-                duration: currentDuration
+                duration: durationInMinutes,
+                price: totalPrice,
+                pricePerUnit: priceInfo.basePrice,
+                totalPrice
               }
             : r
-        )
+        );
+        updateRentals(updatedRentals);
+        return updatedRentals;
       }
 
       if (change > 0) {
-        // Verificar stock antes de agregar
-        if (item.stock < 1) {
-          toast.error('No hay stock disponible')
-          return prev
+        if (item.availableStock < 1) {
+          toast.error('No hay stock disponible');
+          return prev;
         }
-        return [...prev, { 
+
+        const newRentals = [...prev, { 
           itemId, 
           quantity: 1,
-          duration: currentDuration
-        }]
+          duration: durationInMinutes,
+          price: priceInfo.basePrice,
+          pricePerUnit: priceInfo.basePrice,
+          totalPrice: priceInfo.basePrice
+        }];
+        updateRentals(newRentals);
+        return newRentals;
       }
 
-      return prev
-    })
-  }
+      return prev;
+    });
+  }, [itemsWithStock, memoizedPrices, durationInMinutes, updateRentals]);
 
-  const handleCustomPriceChange = (itemId: string, value: number | null) => {
-    setCustomPrices(prev => ({
-      ...prev,
-      [itemId]: value || 0
-    }))
-  }
+  const getQuantityForItem = useCallback((itemId: string) => {
+    return localRentals.find(r => r.itemId === itemId)?.quantity || 0;
+  }, [localRentals]);
 
-  const getQuantityForItem = (itemId: string) => {
-    return localRentals.find(r => r.itemId === itemId)?.quantity || 0
-  }
-
-  // Calcular el total de los alquileres
-  const calculateTotal = () => {
+  const calculateTotal = useCallback(() => {
     return localRentals.reduce((total, rental) => {
-      const item = items.find(i => i.id === rental.itemId)
-      if (!item) return total
-      const basePrice = calculateBasePrice(item)
-      return total + (basePrice * rental.quantity)
-    }, 0)
-  }
+      const item = items.find(i => i.id === rental.itemId);
+      if (!item) return total;
+      const basePrice = calculateBasePrice(item);
+      return total + (basePrice * rental.quantity);
+    }, 0);
+  }, [localRentals, items, calculateBasePrice]);
+
+  // Efecto para inicializar itemsWithStock cuando items cambia
+  useEffect(() => {
+    const initializeStock = async () => {
+      const formattedDate = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null
+
+      console.log('🔄 Iniciando inicialización de stock:', {
+        itemsCount: items.length,
+        hasRequiredParams: {
+          startTime: !!startTime,
+          endTime: !!endTime,
+          date: !!formattedDate
+        },
+        params: {
+          startTime,
+          endTime,
+          date: formattedDate || 'no-date'
+        }
+      })
+
+      if (!items.length) {
+        console.log('ℹ️ No hay items para procesar')
+        setItemsWithStock([])
+        setIsLoadingStock(false)
+        return
+      }
+
+      if (!startTime || !endTime || !formattedDate) {
+        console.log('ℹ️ Faltan parámetros temporales o fecha inválida:', {
+          startTime,
+          endTime,
+          formattedDate
+        })
+        
+        const baseStock = items.map(item => ({
+          ...item,
+          availableStock: item.stock,
+          baseStock: item.stock,
+          reservedUnits: 0
+        }))
+        setItemsWithStock(baseStock)
+        setIsLoadingStock(false)
+        return
+      }
+
+      setIsLoadingStock(true)
+      
+      try {
+        console.log('🔍 Iniciando verificación de disponibilidad para items con fecha:', formattedDate)
+        
+        const stockPromises = items.map(async (item) => {
+          console.log(`📦 Verificando stock para item: ${item.name} (${item.id}) en fecha: ${formattedDate}`)
+          
+          try {
+            const availableStock = await bookingService.checkFutureAvailability(
+              item.id,
+              formattedDate,
+              startTime,
+              endTime
+            )
+
+            console.log('✅ Stock verificado:', {
+              itemId: item.id,
+              itemName: item.name,
+              baseStock: item.stock,
+              availableStock,
+              reservedUnits: Math.max(0, item.stock - availableStock),
+              date: formattedDate
+            })
+
+            const reservedUnits = Math.max(0, item.stock - availableStock)
+            const validatedAvailableStock = Math.max(0, Math.min(availableStock, item.stock))
+
+            return {
+              ...item,
+              availableStock: validatedAvailableStock,
+              baseStock: item.stock,
+              reservedUnits
+            } as ItemWithStock
+          } catch (error) {
+            console.error('❌ Error al verificar stock:', {
+              itemId: item.id,
+              itemName: item.name,
+              error,
+              date: formattedDate
+            })
+            
+            return {
+              ...item,
+              availableStock: item.stock,
+              baseStock: item.stock,
+              reservedUnits: 0
+            } as ItemWithStock
+          }
+        })
+
+        const results = await Promise.all(stockPromises)
+        console.log('✅ Stock actualizado para todos los items:', {
+          itemsCount: results.length,
+          items: results.map(item => ({
+            name: item.name,
+            availableStock: item.availableStock,
+            baseStock: item.baseStock
+          }))
+        })
+        setItemsWithStock(results)
+      } catch (error) {
+        console.error('❌ Error general al procesar stock:', error)
+        
+        const baseStock = items.map(item => ({
+          ...item,
+          availableStock: item.stock,
+          baseStock: item.stock,
+          reservedUnits: 0
+        }))
+        setItemsWithStock(baseStock)
+      } finally {
+        console.log('🔄 Finalizando proceso de stock')
+        setIsLoadingStock(false)
+      }
+    }
+
+    initializeStock()
+  }, [items, startTime, endTime, selectedDate])
 
   if (!currentBranch) {
     return (
@@ -355,90 +449,99 @@ export function RentalStep({
     )
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Lista de artículos */}
-      <div className="space-y-4">
-        {items.map((item) => {
-          const rental = localRentals.find(r => r.itemId === item.id)
-          const duration = currentDuration || 0
-          const basePrice = calculateBasePrice(item)
-          const hasConfigured = hasConfiguredPrice(item)
-
-          return (
-            <div
-              key={item.id}
-              className={cn(
-                "group relative p-4 rounded-lg border transition-all duration-200",
-                getQuantityForItem(item.id) > 0
-                  ? "bg-gray-50 ring-1 ring-black/5 border-transparent"
-                  : "bg-white border-gray-200 hover:border-gray-300"
-              )}
-            >
-              <div className="flex items-center gap-4">
-                {/* Información del artículo */}
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-medium text-gray-900 truncate">
-                    {item.name}
-                  </h4>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-gray-500">
-                      Stock: {item.stock}
-                    </span>
-                    {item.requires_deposit && (
-                      <span className="text-xs text-amber-600">
-                        Depósito: {item.deposit_amount}€
-                      </span>
-                    )}
-                  </div>
-
-                  {renderCustomPriceInput(item, duration, basePrice, hasConfigured)}
-                </div>
-
-                {/* Precio centrado */}
-                <div className="flex items-center px-4">
-                  <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
-                    {basePrice > 0 ? `${basePrice}€` : 'Sin precio'}
+  if (isLoadingStock) {
+    return (
+      <div className="space-y-6">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className="group relative p-4 rounded-lg border transition-all duration-200 bg-gray-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-medium text-gray-900 truncate">
+                  {item.name}
+                </h4>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-gray-500">
+                    Verificando stock disponible...
                   </span>
-                </div>
-
-                {/* Controles de cantidad */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleQuantityChange(item.id, -1)}
-                    disabled={getQuantityForItem(item.id) === 0}
-                    className={cn(
-                      "h-8 w-8",
-                      getQuantityForItem(item.id) === 0 && "opacity-50"
-                    )}
-                  >
-                    <IconMinus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-8 text-center text-sm font-medium">
-                    {getQuantityForItem(item.id)}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleQuantityChange(item.id, 1)}
-                    disabled={getQuantityForItem(item.id) >= item.stock}
-                    className={cn(
-                      "h-8 w-8",
-                      getQuantityForItem(item.id) >= item.stock && "opacity-50"
-                    )}
-                  >
-                    <IconPlus className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
+    );
+  }
 
-      {/* Resumen de alquileres mejorado */}
+  return (
+    <div className="space-y-6">
+      {itemsWithStock.map((item) => (
+        <div
+          key={item.id}
+          className={cn(
+            "group relative p-4 rounded-lg border transition-all duration-200",
+            getQuantityForItem(item.id) > 0
+              ? "bg-gray-50 ring-1 ring-black/5 border-transparent"
+              : "bg-white border-gray-200 hover:border-gray-300"
+          )}
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-medium text-gray-900 truncate">
+                {item.name}
+              </h4>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-gray-500">
+                  Stock disponible: {item.availableStock}
+                </span>
+                {item.requires_deposit && (
+                  <span className="text-xs text-amber-600">
+                    Depósito: {item.deposit_amount}€
+                  </span>
+                )}
+              </div>
+              {renderCustomPriceInput(item)}
+            </div>
+
+            <div className="flex items-center px-4">
+              {renderPrice(item)}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleQuantityChange(item.id, -1)}
+                disabled={getQuantityForItem(item.id) === 0}
+                className={cn(
+                  "h-8 w-8",
+                  getQuantityForItem(item.id) === 0 && "opacity-50"
+                )}
+              >
+                <IconMinus className="h-4 w-4" />
+              </Button>
+              <span className="w-8 text-center text-sm font-medium">
+                {getQuantityForItem(item.id)}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleQuantityChange(item.id, 1)}
+                disabled={getQuantityForItem(item.id) >= item.availableStock}
+                className={cn(
+                  "h-8 w-8",
+                  getQuantityForItem(item.id) >= item.availableStock && "opacity-50"
+                )}
+              >
+                <IconPlus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      ))}
+
       {localRentals.length > 0 && (
         <div className="mt-8 pt-6 border-t">
           <div className="bg-gray-50 rounded-lg p-4">

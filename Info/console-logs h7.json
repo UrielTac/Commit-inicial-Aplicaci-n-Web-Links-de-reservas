@@ -1,0 +1,3389 @@
+[
+  {
+    "type": "log",
+    "message": [
+      "Log capturing started. Use saveLogs() in the console to download logs."
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "⚠️ No hay horarios definidos"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📍 Obteniendo organización actual..."
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "⚠️ No hay horarios definidos"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📍 Obteniendo organización actual..."
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Organización obtenida:",
+      {
+        "id": "99f78081-24fa-4892-aae2-823816e7d132",
+        "name": "Mi Empresa de Padel",
+        "business_name": "Padel Pro S.L.",
+        "email": "info@padelpro.com",
+        "phone": null,
+        "address": null,
+        "city": null,
+        "state": null,
+        "is_active": true,
+        "settings": {},
+        "created_at": "2024-11-18T20:04:54.014911+00:00",
+        "updated_at": "2024-11-18T20:04:54.014911+00:00",
+        "auth_user_id": null,
+        "plan_type": "Free",
+        "onboarding": null,
+        "country": null
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📍 Consultando sedes para organización:",
+      "99f78081-24fa-4892-aae2-823816e7d132"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Sedes obtenidas:",
+      [
+        {
+          "id": "eb8139e9-261f-4912-bc32-9aa1d455ab15",
+          "name": "Sede 2",
+          "address": "xc",
+          "phone": "xc",
+          "manager_id": null,
+          "is_active": true,
+          "opening_hours": {
+            "friday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "05:00",
+                  "closeTime": "23:00"
+                }
+              ]
+            },
+            "monday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "09:00",
+                  "closeTime": "12:00"
+                },
+                {
+                  "openTime": "15:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "sunday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "19:00"
+                }
+              ]
+            },
+            "tuesday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "saturday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "19:00"
+                }
+              ]
+            },
+            "thursday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "20:00"
+                }
+              ]
+            },
+            "wednesday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "12:00"
+                },
+                {
+                  "openTime": "15:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            }
+          },
+          "settings": {},
+          "empresa_id": "99f78081-24fa-4892-aae2-823816e7d132",
+          "created_at": "2024-12-30T21:37:05.049+00:00",
+          "updated_at": "2024-12-30T21:37:05.980216+00:00"
+        },
+        {
+          "id": "8b21d698-6b70-4020-a817-bea2310ce5b1",
+          "name": "LA SEDE 11",
+          "address": "La SEDE",
+          "phone": "dfgdf",
+          "manager_id": "Marcos, Belen",
+          "is_active": true,
+          "opening_hours": {
+            "friday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "monday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "sunday": {
+              "isOpen": false,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "tuesday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "saturday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "thursday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "wednesday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "08:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            }
+          },
+          "settings": {},
+          "empresa_id": "99f78081-24fa-4892-aae2-823816e7d132",
+          "created_at": "2024-12-30T20:34:58.072+00:00",
+          "updated_at": "2024-12-30T20:34:59.446324+00:00"
+        },
+        {
+          "id": "774cad23-40e6-4023-acce-4e0b61b415b8",
+          "name": "Sede Picante",
+          "address": "calle",
+          "phone": "+5692095",
+          "manager_id": "pepe",
+          "is_active": true,
+          "opening_hours": {
+            "friday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "09:00",
+                  "closeTime": "21:00"
+                }
+              ]
+            },
+            "monday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "09:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "sunday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "09:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "tuesday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "09:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "saturday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "09:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "thursday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "09:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            },
+            "wednesday": {
+              "isOpen": true,
+              "timeRanges": [
+                {
+                  "openTime": "09:00",
+                  "closeTime": "22:00"
+                }
+              ]
+            }
+          },
+          "settings": {},
+          "empresa_id": "99f78081-24fa-4892-aae2-823816e7d132",
+          "created_at": "2024-11-23T00:38:09.411+00:00",
+          "updated_at": "2024-11-23T00:38:09.594805+00:00"
+        }
+      ]
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "BookingService - Consultando reservas para fecha:",
+      "2025-01-13"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "BookingService - Consultando reservas para fecha:",
+      "2025-01-14"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "BookingService - Consultando reservas para fecha:",
+      "2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔍 Consultando horarios para:",
+      {
+        "sede": "eb8139e9-261f-4912-bc32-9aa1d455ab15",
+        "dia": "sunday",
+        "fecha": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Organización obtenida:",
+      {
+        "id": "99f78081-24fa-4892-aae2-823816e7d132",
+        "name": "Mi Empresa de Padel",
+        "business_name": "Padel Pro S.L.",
+        "email": "info@padelpro.com",
+        "phone": null,
+        "address": null,
+        "city": null,
+        "state": null,
+        "is_active": true,
+        "settings": {},
+        "created_at": "2024-11-18T20:04:54.014911+00:00",
+        "updated_at": "2024-11-18T20:04:54.014911+00:00",
+        "auth_user_id": null,
+        "plan_type": "Free",
+        "onboarding": null,
+        "country": null
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "a",
+        "available_durations": [],
+        "duration_pricing": {},
+        "custom_pricing": {}
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Lucas Gay",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 50,
+          "90": 60
+        },
+        "custom_pricing": {
+          "3": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              },
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "7": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Pista 1",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Pista 2",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 40,
+          "90": 50
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 15
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Pista 3",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Pista 5",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 30,
+          "90": 90
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "12:00",
+                "startTime": "09:00",
+                "percentage": 0
+              },
+              {
+                "endTime": "23:00",
+                "startTime": "15:00",
+                "percentage": 15
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 1",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 2",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 40,
+          "90": 50
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 15
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 3",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 5",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 30,
+          "90": 90
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "12:00",
+                "startTime": "09:00",
+                "percentage": 0
+              },
+              {
+                "endTime": "23:00",
+                "startTime": "15:00",
+                "percentage": 15
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "BookingService - Reservas transformadas:",
+      [
+        {
+          "id": "28edb884-f7b1-4a37-b30d-8921941c8141",
+          "courtId": "8f69eb96-fde1-4085-8577-61da097e4f99",
+          "court": "Pista 1",
+          "date": "2025-01-13",
+          "startTime": "08:00:00",
+          "endTime": "09:00:00",
+          "totalAmount": 89,
+          "depositAmount": 89,
+          "courtPrice": 45,
+          "rentalItemsPrice": 44,
+          "paymentStatus": "completed",
+          "paymentMethod": "transfer",
+          "title": "",
+          "description": "",
+          "participants": [
+            {
+              "id": "ddb1b6f1-1fd5-4d38-9530-1eccd8f6dffc",
+              "memberId": "67d4ab40-ddd3-4248-aa80-cf4977c0b8f2",
+              "role": "player",
+              "firstName": "Cliente",
+              "lastName": "1"
+            }
+          ]
+        },
+        {
+          "id": "e44a74b7-d590-4bf6-96df-30c2ce63d3fe",
+          "courtId": "562b18bd-612d-4c20-b9ad-c31a1aea44a2",
+          "court": "Pista 2",
+          "date": "2025-01-13",
+          "startTime": "08:00:00",
+          "endTime": "09:00:00",
+          "totalAmount": 102,
+          "depositAmount": 27,
+          "courtPrice": 40,
+          "rentalItemsPrice": 62,
+          "paymentStatus": "partial",
+          "paymentMethod": "stripe",
+          "title": "",
+          "description": "",
+          "participants": [
+            {
+              "id": "66608eb6-5205-4d1a-8d65-f563dcddaedc",
+              "memberId": "c114893b-c244-438d-8a26-b23ea0e4a85e",
+              "role": "player",
+              "firstName": "Cliente",
+              "lastName": "2"
+            }
+          ]
+        },
+        {
+          "id": "a340d350-0a61-4110-9496-e164bc6e51ea",
+          "courtId": "1ff82367-757c-4812-96b7-daee3238d6cd",
+          "court": "Pista 3",
+          "date": "2025-01-13",
+          "startTime": "08:00:00",
+          "endTime": "09:00:00",
+          "totalAmount": 245,
+          "depositAmount": 74,
+          "courtPrice": 45,
+          "rentalItemsPrice": 200,
+          "paymentStatus": "partial",
+          "paymentMethod": "stripe",
+          "title": "",
+          "description": "",
+          "participants": [
+            {
+              "id": "d2430e7c-ff10-4720-9d4c-975742bb64d6",
+              "memberId": "81365268-6d02-43bc-bd3f-0252b91a7314",
+              "role": "player",
+              "firstName": "Cliente",
+              "lastName": "3"
+            }
+          ]
+        },
+        {
+          "id": "07ec78a0-07cc-4ddb-890a-fc8ff9fd3192",
+          "courtId": "8f69eb96-fde1-4085-8577-61da097e4f99",
+          "court": "Pista 1",
+          "date": "2025-01-13",
+          "startTime": "10:00:00",
+          "endTime": "11:00:00",
+          "totalAmount": 205,
+          "depositAmount": 205,
+          "courtPrice": 45,
+          "rentalItemsPrice": 160,
+          "paymentStatus": "completed",
+          "paymentMethod": "transfer",
+          "title": "",
+          "description": "",
+          "participants": [
+            {
+              "id": "7a2051fd-5aea-4f69-929c-0bd731a892a7",
+              "memberId": "a85056d3-3f31-4778-82bc-040a780c9b52",
+              "role": "player",
+              "firstName": "Cliente",
+              "lastName": "4"
+            }
+          ]
+        },
+        {
+          "id": "1d7aea2e-f3e1-4985-8e02-8e25089e91a5",
+          "courtId": "562b18bd-612d-4c20-b9ad-c31a1aea44a2",
+          "court": "Pista 2",
+          "date": "2025-01-13",
+          "startTime": "10:00:00",
+          "endTime": "11:00:00",
+          "totalAmount": 160,
+          "depositAmount": 160,
+          "courtPrice": 40,
+          "rentalItemsPrice": 120,
+          "paymentStatus": "completed",
+          "paymentMethod": "stripe",
+          "title": "",
+          "description": "",
+          "participants": [
+            {
+              "id": "95ed95c0-589b-4da9-bda5-07c1f80ed4c7",
+              "memberId": "3f315593-84d0-4c01-a8b3-2124998cf632",
+              "role": "player",
+              "firstName": "laura",
+              "lastName": "test"
+            }
+          ]
+        },
+        {
+          "id": "72bbddb8-3c9b-414c-8dd0-45f49dd94459",
+          "courtId": "562b18bd-612d-4c20-b9ad-c31a1aea44a2",
+          "court": "Pista 2",
+          "date": "2025-01-13",
+          "startTime": "12:00:00",
+          "endTime": "13:00:00",
+          "totalAmount": 240,
+          "depositAmount": 240,
+          "courtPrice": 40,
+          "rentalItemsPrice": 200,
+          "paymentStatus": "completed",
+          "paymentMethod": "stripe",
+          "title": "",
+          "description": "",
+          "participants": [
+            {
+              "id": "0e816606-3c32-4b16-8d2c-5e8e17819d1e",
+              "memberId": "3f315593-84d0-4c01-a8b3-2124998cf632",
+              "role": "player",
+              "firstName": "laura",
+              "lastName": "test"
+            }
+          ]
+        }
+      ]
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔍 Iniciando carga de artículos para sede:",
+      "eb8139e9-261f-4912-bc32-9aa1d455ab15"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "👉 Verificando existencia de la sede:",
+      "eb8139e9-261f-4912-bc32-9aa1d455ab15"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Horarios de la sede:",
+      {
+        "friday": {
+          "isOpen": true,
+          "timeRanges": [
+            {
+              "openTime": "05:00",
+              "closeTime": "23:00"
+            }
+          ]
+        },
+        "monday": {
+          "isOpen": true,
+          "timeRanges": [
+            {
+              "openTime": "09:00",
+              "closeTime": "12:00"
+            },
+            {
+              "openTime": "15:00",
+              "closeTime": "22:00"
+            }
+          ]
+        },
+        "sunday": {
+          "isOpen": true,
+          "timeRanges": [
+            {
+              "openTime": "08:00",
+              "closeTime": "19:00"
+            }
+          ]
+        },
+        "tuesday": {
+          "isOpen": true,
+          "timeRanges": [
+            {
+              "openTime": "08:00",
+              "closeTime": "22:00"
+            }
+          ]
+        },
+        "saturday": {
+          "isOpen": true,
+          "timeRanges": [
+            {
+              "openTime": "08:00",
+              "closeTime": "19:00"
+            }
+          ]
+        },
+        "thursday": {
+          "isOpen": true,
+          "timeRanges": [
+            {
+              "openTime": "08:00",
+              "closeTime": "20:00"
+            }
+          ]
+        },
+        "wednesday": {
+          "isOpen": true,
+          "timeRanges": [
+            {
+              "openTime": "08:00",
+              "closeTime": "12:00"
+            },
+            {
+              "openTime": "15:00",
+              "closeTime": "22:00"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "⏰ Procesando rango:",
+      {
+        "range": {
+          "openTime": "08:00",
+          "closeTime": "19:00"
+        },
+        "startMinutes": 480,
+        "endMinutes": 1140
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Resultado final:",
+      {
+        "isOpen": true,
+        "timeRanges": [
+          {
+            "openTime": "08:00",
+            "closeTime": "19:00"
+          }
+        ],
+        "fullRange": {
+          "openTime": "08:00",
+          "closeTime": "19:00"
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📊 Horario calculado:",
+      {
+        "start": "08:00",
+        "end": "19:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📊 Horario calculado:",
+      {
+        "start": "08:00",
+        "end": "19:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📍 Generando slots para horario:",
+      {
+        "start": "08:00",
+        "end": "19:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Actualizando slots por cambio significativo"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📍 Generando slots para horario:",
+      {
+        "start": "08:00",
+        "end": "19:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "a",
+        "available_durations": [],
+        "duration_pricing": {},
+        "custom_pricing": {}
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Lucas Gay",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 50,
+          "90": 60
+        },
+        "custom_pricing": {
+          "3": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              },
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "7": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Pista 1",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Pista 2",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 40,
+          "90": 50
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 15
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Pista 3",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Datos procesados de la cancha:",
+      {
+        "name": "Pista 5",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 30,
+          "90": 90
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "12:00",
+                "startTime": "09:00",
+                "percentage": 0
+              },
+              {
+                "endTime": "23:00",
+                "startTime": "15:00",
+                "percentage": 15
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "a",
+        "available_durations": [],
+        "duration_pricing": {},
+        "custom_pricing": {}
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Lucas Gay",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 50,
+          "90": 60
+        },
+        "custom_pricing": {
+          "3": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              },
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "7": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 1",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 2",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 40,
+          "90": 50
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 15
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 3",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 5",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 30,
+          "90": 90
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "12:00",
+                "startTime": "09:00",
+                "percentage": 0
+              },
+              {
+                "endTime": "23:00",
+                "startTime": "15:00",
+                "percentage": 15
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "a",
+        "available_durations": [],
+        "duration_pricing": {},
+        "custom_pricing": {}
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Lucas Gay",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 50,
+          "90": 60
+        },
+        "custom_pricing": {
+          "3": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              },
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "7": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 1",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 2",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 40,
+          "90": 50
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 15
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 3",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 5",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 30,
+          "90": 90
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "12:00",
+                "startTime": "09:00",
+                "percentage": 0
+              },
+              {
+                "endTime": "23:00",
+                "startTime": "15:00",
+                "percentage": 15
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Sede verificada:",
+      "Sede 2"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "👉 Obteniendo artículos de la sede"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ 4 artículos encontrados"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando precio por duración:",
+      {
+        "itemName": "Articulo 1",
+        "duration": 30,
+        "price": 18
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando precio por duración:",
+      {
+        "itemName": "Articulo 1",
+        "duration": 60,
+        "price": 14
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando duration_pricing para item:",
+      {
+        "itemName": "Articulo 1",
+        "originalPricing": {
+          "30": 18,
+          "60": 14
+        },
+        "processedPricing": {
+          "30": 18,
+          "60": 14
+        },
+        "availableDurations": [
+          "30",
+          "60"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando precio por duración:",
+      {
+        "itemName": "Articulo 2",
+        "duration": 60,
+        "price": 15
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando duration_pricing para item:",
+      {
+        "itemName": "Articulo 2",
+        "originalPricing": {
+          "60": 15
+        },
+        "processedPricing": {
+          "60": 15
+        },
+        "availableDurations": [
+          "60"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando precio por duración:",
+      {
+        "itemName": "Articulo 3",
+        "duration": 30,
+        "price": 10
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando precio por duración:",
+      {
+        "itemName": "Articulo 3",
+        "duration": 60,
+        "price": 16
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando duration_pricing para item:",
+      {
+        "itemName": "Articulo 3",
+        "originalPricing": {
+          "30": 10,
+          "60": 16
+        },
+        "processedPricing": {
+          "30": 10,
+          "60": 16
+        },
+        "availableDurations": [
+          "30",
+          "60"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando precio por duración:",
+      {
+        "itemName": "Articulo 4",
+        "duration": 30,
+        "price": 12
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando precio por duración:",
+      {
+        "itemName": "Articulo 4",
+        "duration": 60,
+        "price": 40
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando duration_pricing para item:",
+      {
+        "itemName": "Articulo 4",
+        "originalPricing": {
+          "30": 12,
+          "60": 40
+        },
+        "processedPricing": {
+          "30": 12,
+          "60": 40
+        },
+        "availableDurations": [
+          "30",
+          "60"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Datos transformados correctamente"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📅 Día actual:",
+      {
+        "spanishDay": "domingo",
+        "dayOfWeek": "sunday",
+        "date": "12/01/2025"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 1",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 2",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 40,
+          "90": 50
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 15
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 3",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 5",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 30,
+          "90": 90
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "12:00",
+                "startTime": "09:00",
+                "percentage": 0
+              },
+              {
+                "endTime": "23:00",
+                "startTime": "15:00",
+                "percentage": 15
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 1",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 2",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 40,
+          "90": 50
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 10
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 15
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 3",
+        "available_durations": [
+          60,
+          90,
+          120
+        ],
+        "duration_pricing": {
+          "60": 45,
+          "90": 50,
+          "120": 55
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 0
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Procesando cancha en hook:",
+      {
+        "name": "Pista 5",
+        "available_durations": [
+          60,
+          90
+        ],
+        "duration_pricing": {
+          "60": 30,
+          "90": 90
+        },
+        "custom_pricing": {
+          "5": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "12:00",
+                "startTime": "09:00",
+                "percentage": 0
+              },
+              {
+                "endTime": "23:00",
+                "startTime": "15:00",
+                "percentage": 15
+              }
+            ]
+          },
+          "6": {
+            "isSelected": true,
+            "timeRanges": [
+              {
+                "endTime": "22:00",
+                "startTime": "09:00",
+                "percentage": 20
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Calculando duración para timeSelection:",
+      {
+        "startTime": "10:00",
+        "endTime": "11:00",
+        "slots": 4,
+        "durationInMinutes": 60,
+        "calculatedFromSlots": 60
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Total amount calculation:",
+      {
+        "courtPrice": 45,
+        "rentalPrice": 0,
+        "totalAmount": 45,
+        "manualCourtPrice": null
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "Total amount calculation:",
+      {
+        "courtPrice": 45,
+        "rentalPrice": 0,
+        "totalAmount": 45,
+        "manualCourtPrice": null
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Iniciando inicialización de stock:",
+      {
+        "itemsCount": 4,
+        "hasRequiredParams": {
+          "startTime": true,
+          "endTime": true,
+          "date": true
+        },
+        "params": {
+          "startTime": "10:00",
+          "endTime": "11:00",
+          "date": "2025-01-12"
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔍 Iniciando verificación de disponibilidad para items con fecha:",
+      "2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Verificando stock para item: Articulo 1 (19380ce9-78cc-473c-a9e0-b6c422415158) en fecha: 2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Verificando stock para item: Articulo 2 (61c7b47d-a093-4a9b-bacc-6f04b104d3ca) en fecha: 2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Verificando stock para item: Articulo 3 (8e76de4a-d5d0-4083-afee-581ecf0c9dc9) en fecha: 2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Verificando stock para item: Articulo 4 (5088e195-5053-4160-8997-4786ba61b873) en fecha: 2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Iniciando inicialización de stock:",
+      {
+        "itemsCount": 4,
+        "hasRequiredParams": {
+          "startTime": true,
+          "endTime": true,
+          "date": true
+        },
+        "params": {
+          "startTime": "10:00",
+          "endTime": "11:00",
+          "date": "2025-01-12"
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔍 Iniciando verificación de disponibilidad para items con fecha:",
+      "2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Verificando stock para item: Articulo 1 (19380ce9-78cc-473c-a9e0-b6c422415158) en fecha: 2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Verificando stock para item: Articulo 2 (61c7b47d-a093-4a9b-bacc-6f04b104d3ca) en fecha: 2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Verificando stock para item: Articulo 3 (8e76de4a-d5d0-4083-afee-581ecf0c9dc9) en fecha: 2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Verificando stock para item: Articulo 4 (5088e195-5053-4160-8997-4786ba61b873) en fecha: 2025-01-12"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Stock base obtenido:",
+      {
+        "itemId": "61c7b47d-a093-4a9b-bacc-6f04b104d3ca",
+        "baseStock": 60,
+        "itemData": {
+          "stock": 60
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Consultando get_available_stock con parámetros:",
+      {
+        "p_item_id": "61c7b47d-a093-4a9b-bacc-6f04b104d3ca",
+        "p_booking_date": "2025-01-12",
+        "p_start_time": "10:00",
+        "p_end_time": "11:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Stock base obtenido:",
+      {
+        "itemId": "5088e195-5053-4160-8997-4786ba61b873",
+        "baseStock": 17,
+        "itemData": {
+          "stock": 17
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Consultando get_available_stock con parámetros:",
+      {
+        "p_item_id": "5088e195-5053-4160-8997-4786ba61b873",
+        "p_booking_date": "2025-01-12",
+        "p_start_time": "10:00",
+        "p_end_time": "11:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Stock base obtenido:",
+      {
+        "itemId": "19380ce9-78cc-473c-a9e0-b6c422415158",
+        "baseStock": 50,
+        "itemData": {
+          "stock": 50
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Consultando get_available_stock con parámetros:",
+      {
+        "p_item_id": "19380ce9-78cc-473c-a9e0-b6c422415158",
+        "p_booking_date": "2025-01-12",
+        "p_start_time": "10:00",
+        "p_end_time": "11:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Stock base obtenido:",
+      {
+        "itemId": "8e76de4a-d5d0-4083-afee-581ecf0c9dc9",
+        "baseStock": 24,
+        "itemData": {
+          "stock": 24
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Consultando get_available_stock con parámetros:",
+      {
+        "p_item_id": "8e76de4a-d5d0-4083-afee-581ecf0c9dc9",
+        "p_booking_date": "2025-01-12",
+        "p_start_time": "10:00",
+        "p_end_time": "11:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock verificado:",
+      {
+        "itemId": "61c7b47d-a093-4a9b-bacc-6f04b104d3ca",
+        "itemName": "Articulo 2",
+        "baseStock": 60,
+        "availableStock": 60,
+        "reservedUnits": 0,
+        "date": "2025-01-12",
+        "calculation": {
+          "baseStock": 60,
+          "availableFromDB": 60,
+          "calculatedReserved": 0
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Stock base obtenido:",
+      {
+        "itemId": "61c7b47d-a093-4a9b-bacc-6f04b104d3ca",
+        "baseStock": 60,
+        "itemData": {
+          "stock": 60
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Consultando get_available_stock con parámetros:",
+      {
+        "p_item_id": "61c7b47d-a093-4a9b-bacc-6f04b104d3ca",
+        "p_booking_date": "2025-01-12",
+        "p_start_time": "10:00",
+        "p_end_time": "11:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock verificado:",
+      {
+        "itemId": "5088e195-5053-4160-8997-4786ba61b873",
+        "itemName": "Articulo 4",
+        "baseStock": 17,
+        "availableStock": 17,
+        "reservedUnits": 0,
+        "date": "2025-01-12",
+        "calculation": {
+          "baseStock": 17,
+          "availableFromDB": 17,
+          "calculatedReserved": 0
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock verificado:",
+      {
+        "itemId": "19380ce9-78cc-473c-a9e0-b6c422415158",
+        "itemName": "Articulo 1",
+        "baseStock": 50,
+        "availableStock": 50,
+        "reservedUnits": 0,
+        "date": "2025-01-12",
+        "calculation": {
+          "baseStock": 50,
+          "availableFromDB": 50,
+          "calculatedReserved": 0
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Stock base obtenido:",
+      {
+        "itemId": "5088e195-5053-4160-8997-4786ba61b873",
+        "baseStock": 17,
+        "itemData": {
+          "stock": 17
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Consultando get_available_stock con parámetros:",
+      {
+        "p_item_id": "5088e195-5053-4160-8997-4786ba61b873",
+        "p_booking_date": "2025-01-12",
+        "p_start_time": "10:00",
+        "p_end_time": "11:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Stock base obtenido:",
+      {
+        "itemId": "19380ce9-78cc-473c-a9e0-b6c422415158",
+        "baseStock": 50,
+        "itemData": {
+          "stock": 50
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Consultando get_available_stock con parámetros:",
+      {
+        "p_item_id": "19380ce9-78cc-473c-a9e0-b6c422415158",
+        "p_booking_date": "2025-01-12",
+        "p_start_time": "10:00",
+        "p_end_time": "11:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "📦 Stock base obtenido:",
+      {
+        "itemId": "8e76de4a-d5d0-4083-afee-581ecf0c9dc9",
+        "baseStock": 24,
+        "itemData": {
+          "stock": 24
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Consultando get_available_stock con parámetros:",
+      {
+        "p_item_id": "8e76de4a-d5d0-4083-afee-581ecf0c9dc9",
+        "p_booking_date": "2025-01-12",
+        "p_start_time": "10:00",
+        "p_end_time": "11:00"
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock verificado:",
+      {
+        "itemId": "8e76de4a-d5d0-4083-afee-581ecf0c9dc9",
+        "itemName": "Articulo 3",
+        "baseStock": 24,
+        "availableStock": 24,
+        "reservedUnits": 0,
+        "date": "2025-01-12",
+        "calculation": {
+          "baseStock": 24,
+          "availableFromDB": 24,
+          "calculatedReserved": 0
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock actualizado para todos los items:",
+      {
+        "itemsCount": 4,
+        "items": [
+          {
+            "name": "Articulo 1",
+            "availableStock": 50,
+            "baseStock": 50
+          },
+          {
+            "name": "Articulo 2",
+            "availableStock": 60,
+            "baseStock": 60
+          },
+          {
+            "name": "Articulo 3",
+            "availableStock": 24,
+            "baseStock": 24
+          },
+          {
+            "name": "Articulo 4",
+            "availableStock": 17,
+            "baseStock": 17
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Finalizando proceso de stock"
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock verificado:",
+      {
+        "itemId": "5088e195-5053-4160-8997-4786ba61b873",
+        "itemName": "Articulo 4",
+        "baseStock": 17,
+        "availableStock": 17,
+        "reservedUnits": 0,
+        "date": "2025-01-12",
+        "calculation": {
+          "baseStock": 17,
+          "availableFromDB": 17,
+          "calculatedReserved": 0
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock verificado:",
+      {
+        "itemId": "8e76de4a-d5d0-4083-afee-581ecf0c9dc9",
+        "itemName": "Articulo 3",
+        "baseStock": 24,
+        "availableStock": 24,
+        "reservedUnits": 0,
+        "date": "2025-01-12",
+        "calculation": {
+          "baseStock": 24,
+          "availableFromDB": 24,
+          "calculatedReserved": 0
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock verificado:",
+      {
+        "itemId": "61c7b47d-a093-4a9b-bacc-6f04b104d3ca",
+        "itemName": "Articulo 2",
+        "baseStock": 60,
+        "availableStock": 60,
+        "reservedUnits": 0,
+        "date": "2025-01-12",
+        "calculation": {
+          "baseStock": 60,
+          "availableFromDB": 60,
+          "calculatedReserved": 0
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock verificado:",
+      {
+        "itemId": "19380ce9-78cc-473c-a9e0-b6c422415158",
+        "itemName": "Articulo 1",
+        "baseStock": 50,
+        "availableStock": 50,
+        "reservedUnits": 0,
+        "date": "2025-01-12",
+        "calculation": {
+          "baseStock": 50,
+          "availableFromDB": 50,
+          "calculatedReserved": 0
+        }
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "✅ Stock actualizado para todos los items:",
+      {
+        "itemsCount": 4,
+        "items": [
+          {
+            "name": "Articulo 1",
+            "availableStock": 50,
+            "baseStock": 50
+          },
+          {
+            "name": "Articulo 2",
+            "availableStock": 60,
+            "baseStock": 60
+          },
+          {
+            "name": "Articulo 3",
+            "availableStock": 24,
+            "baseStock": 24
+          },
+          {
+            "name": "Articulo 4",
+            "availableStock": 17,
+            "baseStock": 17
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "log",
+    "message": [
+      "🔄 Finalizando proceso de stock"
+    ]
+  }
+]

@@ -1,120 +1,230 @@
-import { useState, useCallback } from 'react'
-import { type BookingType } from '@/types/bookings'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import type { 
+  BookingStep,
+  TimeSelection,
+  ClassPaymentConfig,
+  BookingType,
+  ClassDetails,
+  BookingState
+} from '@/components/bookings/components/NewBookingModal/types'
 
-interface BookingState {
-  currentStep: 'booking-type' | 'date' | 'class-details' | 'class-schedule' | 'class-availability'
-  selectedBookingType: BookingType | null
-  selectedDate: Date | null
-  selectedCourts: string[]
-  timeSelection: {
-    startTime: string
-    endTime: string
-  } | null
-  classPaymentConfig: {
-    price: number
-    deposit: number
-    paymentMethods: ('cash' | 'card' | 'transfer')[]
+interface BookingStateConfig {
+  initialBookingType: BookingType
+  disableTypeSelection?: boolean
+  initialStep: BookingStep
+}
+
+// Definir los pasos para cada tipo de reserva
+const STEPS_BY_TYPE = {
+  class: [
+    'class-details',
+    'class-schedule',
+    'class-availability',
+    'payment',
+    'confirmation'
+  ],
+  shift: [
+    'participants',
+    'rentals',
+    'payment',
+    'confirmation'
+  ]
+} as const
+
+// Función pura de validación
+function validateBookingStep(state: BookingState, step: BookingStep): boolean {
+  switch (step) {
+    case 'class-details':
+      return !!state.classDetails?.name?.trim()
+    case 'date':
+      return !!state.selectedDate
+    case 'time':
+      return state.selectedCourts.length > 0 && !!state.timeSelection
+    case 'class-availability':
+    case 'class-schedule':
+    case 'payment':
+    case 'confirmation':
+    case 'participants':
+    case 'rentals':
+      return true
+    default:
+      return false
   }
 }
 
 const initialState: BookingState = {
-  currentStep: 'booking-type',
-  selectedBookingType: null,
-  selectedDate: null,
+  currentStep: 'class-details',
+  selectedBookingType: 'class',
+  selectedDate: undefined,
   selectedCourts: [],
-  timeSelection: null,
+  timeSelection: undefined,
+  classDetails: {
+    name: '',
+    description: '',
+    visibility: 'public'
+  },
   classPaymentConfig: {
-    price: 0,
-    deposit: 0,
-    paymentMethods: ['cash']
-  }
+    pricePerSession: 0,
+    currency: 'EUR',
+    paymentMethod: 'cash',
+    paymentStatus: 'pending',
+    availableMethods: [
+      {
+        id: 'cash',
+        name: 'Efectivo',
+        icon: 'cash'
+      },
+      {
+        id: 'card',
+        name: 'Tarjeta',
+        icon: 'card'
+      },
+      {
+        id: 'transfer',
+        name: 'Transferencia',
+        icon: 'transfer'
+      }
+    ]
+  },
+  scheduleConfig: {
+    isRecurring: false,
+    startDate: undefined,
+    endDate: undefined,
+    weekDays: [],
+    timeSlots: []
+  },
+  isStepValid: false
 }
 
-export function useBookingState() {
-  const [state, setState] = useState<BookingState>(initialState)
+export function useBookingState(config?: BookingStateConfig) {
+  // Mantener una referencia a la configuración inicial
+  const configRef = useRef(config)
+  
+  // Estado inicial memoizado
+  const [state, setState] = useState(() => {
+    const initialConfig = configRef.current
+    if (!initialConfig) return initialState
+    
+    const newState = {
+      ...initialState,
+      currentStep: initialConfig.initialStep || 'class-details',
+      selectedBookingType: initialConfig.initialBookingType || 'class',
+    }
 
-  const resetState = useCallback(() => {
-    setState(initialState)
-  }, [])
+    return {
+      ...newState,
+      isStepValid: validateBookingStep(newState, newState.currentStep)
+    }
+  })
 
-  const setSelectedBookingType = useCallback((type: BookingType | null) => {
-    setState(prev => ({ ...prev, selectedBookingType: type }))
-  }, [])
+  // Ref para el estado actual
+  const stateRef = useRef(state)
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
 
-  const setSelectedDate = useCallback((date: Date | null) => {
-    setState(prev => ({ ...prev, selectedDate: date }))
-  }, [])
+  // Prevenir actualizaciones innecesarias
+  const lastUpdateRef = useRef<Partial<BookingState>>({})
 
-  const setSelectedCourts = useCallback((courts: string[]) => {
-    setState(prev => ({ ...prev, selectedCourts: courts }))
-  }, [])
+  // Función de actualización optimizada
+  const updateState = useCallback((updates: Partial<BookingState>) => {
+    // Verificar si la actualización es necesaria
+    const hasChanged = Object.entries(updates).some(
+      ([key, value]) => lastUpdateRef.current[key as keyof BookingState] !== value
+    )
 
-  const setTimeSelection = useCallback((time: { startTime: string; endTime: string } | null) => {
-    setState(prev => ({ ...prev, timeSelection: time }))
-  }, [])
+    if (!hasChanged) return
 
-  const setClassPaymentConfig = useCallback((config: Partial<BookingState['classPaymentConfig']>) => {
+    // Actualizar la referencia de la última actualización
+    lastUpdateRef.current = updates
+
     setState(prev => {
-      const newConfig = { ...prev.classPaymentConfig, ...config }
-      if (config.price !== undefined) {
-        newConfig.deposit = newConfig.price
+      const next = { ...prev, ...updates }
+      
+      // Validación selectiva basada en cambios específicos
+      if (updates.isStepValid === undefined) {
+        const needsValidation = 
+          updates.currentStep !== undefined ||
+          (updates.selectedBookingType !== undefined && next.currentStep === 'booking-type') ||
+          (updates.classDetails !== undefined && next.currentStep === 'class-details') ||
+          (updates.selectedDate !== undefined && next.currentStep === 'date') ||
+          ((updates.selectedCourts !== undefined || updates.timeSelection !== undefined) && 
+           next.currentStep === 'time')
+
+        if (needsValidation) {
+          next.isStepValid = validateBookingStep(next, next.currentStep)
+        }
       }
-      return {
-        ...prev,
-        classPaymentConfig: newConfig
-      }
+      
+      return next
     })
   }, [])
 
+  // Obtener pasos según tipo con memoización
+  const getCurrentSteps = useCallback(() => {
+    const currentState = stateRef.current
+    const config = configRef.current
+    
+    // Si el tipo de reserva está bloqueado, usar solo los pasos de ese tipo
+    if (config?.disableTypeSelection) {
+      return STEPS_BY_TYPE[config.initialBookingType]
+    }
+    
+    return currentState.selectedBookingType ? 
+      STEPS_BY_TYPE[currentState.selectedBookingType] : 
+      STEPS_BY_TYPE.class
+  }, [])
+
+  // Navegación optimizada con prevención de actualizaciones innecesarias
   const handleContinue = useCallback(() => {
-    setState(prev => {
-      const nextStep = getNextStep(prev.currentStep, prev.selectedBookingType)
-      return { ...prev, currentStep: nextStep }
-    })
-  }, [])
+    const currentState = stateRef.current
+    const currentSteps = getCurrentSteps()
+    const currentIndex = currentSteps.indexOf(currentState.currentStep as any)
+    const nextStep = currentSteps[currentIndex + 1]
+    
+    if (nextStep && nextStep !== currentState.currentStep) {
+      updateState({ 
+        currentStep: nextStep as BookingStep,
+        isStepValid: validateBookingStep(currentState, nextStep as BookingStep)
+      })
+    }
+  }, [getCurrentSteps, updateState])
 
   const handleBack = useCallback(() => {
-    setState(prev => {
-      const prevStep = getPreviousStep(prev.currentStep, prev.selectedBookingType)
-      return { ...prev, currentStep: prevStep }
-    })
+    const currentState = stateRef.current
+    const config = configRef.current
+    const currentSteps = getCurrentSteps()
+    const currentIndex = currentSteps.indexOf(currentState.currentStep as any)
+    const prevStep = currentSteps[currentIndex - 1]
+    
+    // Si el tipo está bloqueado y estamos en el primer paso, no permitir retroceder
+    if (config?.disableTypeSelection && currentIndex === 0) {
+      return
+    }
+    
+    if (prevStep && prevStep !== currentState.currentStep) {
+      updateState({ 
+        currentStep: prevStep as BookingStep,
+        isStepValid: validateBookingStep(currentState, prevStep as BookingStep)
+      })
+    }
+  }, [getCurrentSteps, updateState])
+
+  // Reset optimizado
+  const resetState = useCallback(() => {
+    lastUpdateRef.current = {}
+    setState(initialState)
   }, [])
 
   return {
     ...state,
+    updateState,
     resetState,
-    setSelectedBookingType,
-    setSelectedDate,
-    setSelectedCourts,
-    setTimeSelection,
-    setClassPaymentConfig,
     handleContinue,
-    handleBack
-  }
-}
-
-function getNextStep(currentStep: BookingState['currentStep'], bookingType: BookingType | null): BookingState['currentStep'] {
-  switch (currentStep) {
-    case 'booking-type':
-      return bookingType === 'class' ? 'class-details' : 'date'
-    case 'class-details':
-      return 'class-schedule'
-    case 'class-schedule':
-      return 'class-availability'
-    default:
-      return currentStep
-  }
-}
-
-function getPreviousStep(currentStep: BookingState['currentStep'], bookingType: BookingType | null): BookingState['currentStep'] {
-  switch (currentStep) {
-    case 'class-availability':
-      return 'class-schedule'
-    case 'class-schedule':
-      return 'class-details'
-    case 'class-details':
-      return 'booking-type'
-    default:
-      return 'booking-type'
+    handleBack,
+    validateStep: useCallback(
+      (step: BookingStep) => validateBookingStep(stateRef.current, step),
+      []
+    )
   }
 } 

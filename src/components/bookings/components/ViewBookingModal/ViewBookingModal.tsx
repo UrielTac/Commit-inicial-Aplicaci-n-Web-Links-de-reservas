@@ -5,22 +5,32 @@ import { es } from "date-fns/locale"
 import { useCourts } from "@/hooks/useCourts"
 import { useBranchContext } from "@/contexts/BranchContext"
 import { timeToMinutes } from "@/lib/time-utils"
-import { SelectedBooking } from '@/types/bookings'
+import { type PaymentStatusEnum, type SelectedBooking } from '@/types/bookings'
 import { cn } from "@/lib/utils"
 import { useState, useEffect, useMemo } from "react"
 import { bookingService } from "@/services/bookingService"
-import { toast } from "react-hot-toast"
+import { toast } from '@/components/ui/use-toast'
 import { PaymentModal } from "../PaymentModal/PaymentModal"
 import { Button } from "@/components/ui/button"
+import { paymentService } from "@/services/paymentService"
+import { useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
+import { useBookings } from '@/hooks/useBookings'
+import { useQuery } from '@tanstack/react-query'
+import { CancelBookingModal } from "../CancelBookingModal/CancelBookingModal"
+import { useToast } from '@/components/ui/use-toast'
+import { IconCircleCheck } from '@tabler/icons-react'
 
 interface ViewBookingModalProps {
   isOpen: boolean
   onClose: () => void
   booking: SelectedBooking | null
+  setSelectedBooking: (booking: SelectedBooking | null) => void
+  onCancelSuccess: () => void
 }
 
 // Funciones helper
-const formatTime = (time: string) => {
+const formatTime = (time?: string) => {
+  if (!time) return '--:--'
   return time.split(':').slice(0, 2).join(':')
 }
 
@@ -124,13 +134,17 @@ const formatPrice = (amount: number | undefined | null) => {
 
 function PaymentDetails({ 
   total, 
-  deposit, 
+  deposit,
+  courtPrice,
+  rentalPrice,
   paymentMethod, 
   status,
   onNewPayment
 }: { 
   total: number
   deposit: number
+  courtPrice: number
+  rentalPrice: number
   paymentMethod: string
   status: string
   onNewPayment: (amount: number, method: string) => void
@@ -150,49 +164,66 @@ function PaymentDetails({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2 pt-3 border-t">
-        {/* Total */}
-        <div className="flex justify-between text-sm font-medium">
-          <span className="text-gray-900">Total</span>
-          <span className="text-gray-900">{formatPrice(total)}</span>
-        </div>
-
-        {/* Monto Depositado */}
+      <div className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Monto depositado</span>
-          <span className="text-gray-900">{formatPrice(deposit)}</span>
-        </div>
-
-        {/* Método de Pago */}
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Método de pago</span>
-          <span className="text-gray-700">
-            {formatPaymentMethod(paymentMethod)}
+          <span className="text-gray-600">Precio cancha</span>
+          <span className="font-medium text-gray-900">
+            {formatPrice(courtPrice)}
           </span>
         </div>
-
-        {/* Estado */}
-        <div className="flex justify-between text-sm items-center">
-          <span className="text-gray-500">Estado</span>
-          <span className={cn(
-            "px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset",
-            getStatusColor(status)
-          )}>
-            {getStatusText(status)}
-          </span>
-        </div>
-
-        {/* Botón de Registrar Resto */}
-        {status === 'partial' && (
-          <Button
-            onClick={() => setShowPaymentModal(true)}
-            variant="outline"
-            className="w-full mt-4 border-dashed hover:border-solid transition-all duration-200"
-          >
-            Registrar Resto
-          </Button>
+        {rentalPrice > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Precio items</span>
+            <span className="font-medium text-gray-900">
+              {formatPrice(rentalPrice)}
+            </span>
+          </div>
         )}
+        <div className="pt-2 border-t flex justify-between text-sm">
+          <span className="font-medium text-gray-900">Total</span>
+          <span className="font-medium text-gray-900">
+            {formatPrice(total)}
+          </span>
+        </div>
       </div>
+
+      {/* Monto Depositado */}
+      <div className="flex justify-between text-sm">
+        <span className="text-gray-500">Monto depositado</span>
+        <span className="text-gray-900">{formatPrice(deposit)}</span>
+      </div>
+
+      {/* Método de Pago */}
+      <div className="flex justify-between text-sm">
+        <span className="text-gray-500">Método de pago</span>
+        <span className="text-gray-700">
+          {formatPaymentMethod(paymentMethod)}
+        </span>
+      </div>
+
+      {/* Estado */}
+      <div className="flex justify-between text-sm">
+        <span className="text-gray-500">Estado</span>
+        <span className={cn(
+          "px-2 py-1 rounded-full text-xs font-medium",
+          status === 'completed' && "bg-green-100 text-green-700",
+          status === 'partial' && "bg-yellow-100 text-yellow-700",
+          status === 'pending' && "bg-gray-100 text-gray-700"
+        )}>
+          {getStatusText(status)}
+        </span>
+      </div>
+
+      {/* Botón de Registrar Resto */}
+      {status === 'partial' && (
+        <Button
+          onClick={() => setShowPaymentModal(true)}
+          variant="outline"
+          className="w-full mt-4 border-dashed hover:border-solid transition-all duration-200"
+        >
+          Registrar Resto
+        </Button>
+      )}
 
       <PaymentModal
         isOpen={showPaymentModal}
@@ -204,106 +235,176 @@ function PaymentDetails({
   )
 }
 
-export function ViewBookingModal({ isOpen, onClose, booking }: ViewBookingModalProps) {
+type RentalItem = NonNullable<SelectedBooking['rentedItems']>[number]
+type Participant = SelectedBooking['participants'][number]
+
+interface Court {
+  id: string
+  name: string
+}
+
+interface ProcessedData {
+  courtName: string
+  hasValidParticipants: boolean
+  participants: SelectedBooking['participants']
+  formatParticipantName: (participant: Participant) => string
+  getInitial: (participant: Participant) => string
+  durationInMinutes: number
+  totalAmount: number
+  depositAmount: number
+  paymentMethod: string
+  paymentStatus: PaymentStatusEnum
+  rentalsTotal: number
+}
+
+export function ViewBookingModal({ 
+  isOpen, 
+  onClose, 
+  booking,
+  setSelectedBooking,
+  onCancelSuccess
+}: ViewBookingModalProps) {
   const { currentBranch } = useBranchContext()
   const { data: courts = [] } = useCourts({ branchId: currentBranch?.id })
-  const [showHistory, setShowHistory] = useState(false)
+  const queryClient = useQueryClient()
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const { toast } = useToast()
 
-  // Procesamiento de datos mejorado
-  const processedData = useMemo(() => {
-    if (!booking) return null
+  const { data: currentBooking, isLoading } = useQuery({
+    queryKey: ['booking', booking?.id] as const,
+    queryFn: async () => {
+      if (!booking?.id) throw new Error('No booking ID provided')
+      const result = await bookingService.getBookingById(booking.id)
+      if (!result) throw new Error('Booking not found')
+      return result as SelectedBooking
+    },
+    enabled: !!booking?.id && isOpen,
+    initialData: booking || undefined,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false
+  })
 
-    console.log('Datos originales de la reserva:', booking)
+  const { registerPayment, cancelBooking } = useBookings()
 
-    // Encontrar el nombre de la pista
-    const court = courts.find(c => c.id === booking.court)
-    const courtName = court ? court.name : booking.court
+  const handlePayment = async (amount: number, method: string) => {
+    if (!currentBooking) return
 
-    // Validación y procesamiento de participantes
-    const participants = Array.isArray(booking.participants) ? booking.participants : []
-
-    // Procesamiento de datos mejorado
-    const processedResult = {
-      courtName,
-      hasValidParticipants: participants.length > 0,
-      participants,
-      formatParticipantName: (participant: any): string => {
-        if (!participant) return 'Usuario no registrado'
-        const firstName = participant.first_name || ''
-        const lastName = participant.last_name || ''
-        return `${firstName} ${lastName}`.trim() || 'Usuario no registrado'
-      },
-      getInitial: (participant: any): string => {
-        if (!participant || !participant.first_name) return 'U'
-        return participant.first_name.charAt(0).toUpperCase()
-      },
-      durationInMinutes: timeToMinutes(booking.endTime) - timeToMinutes(booking.startTime),
-      courtPrice: booking.price ?? 0,
-      rentalsTotal: booking.rentedItems?.reduce((total, item) => 
-        total + (item.pricePerUnit * item.quantity), 0) ?? 0,
-      totalAmount: booking.totalAmount ?? 0,
-      depositAmount: booking.depositAmount ?? 0,
-      paymentMethod: booking.paymentMethod ?? '',
-      paymentStatus: booking.paymentStatus ?? 'pending',
-      statusHistory: booking.statusHistory ?? []
-    }
-
-    // Debug de los datos procesados
-    console.log('Datos procesados en ViewBookingModal:', {
-      original: {
-        depositAmount: booking.depositAmount,
-        paymentMethod: booking.paymentMethod
-      },
-      processed: {
-        depositAmount: processedResult.depositAmount,
-        paymentMethod: processedResult.paymentMethod
-      }
-    })
-
-    return processedResult
-  }, [booking, courts])
-
-  if (!booking || !processedData) return null
-
-  const handleNewPayment = async (amount: number, method: string) => {
     try {
-      console.log('ViewBookingModal - Recibiendo datos:', { amount, method, bookingId: booking.id })
-      
-      // Convertir el método de pago al formato correcto
-      const paymentMethod = method === 'card' ? 'stripe' : method
-
-      console.log('ViewBookingModal - Enviando a bookingService:', {
-        amount,
-        paymentType: 'remaining',
-        paymentMethod,
-        bookingId: booking.id
+      await registerPayment({
+        bookingId: currentBooking.id,
+        depositAmount: amount,
+        paymentMethod: method,
+        notes: `Pago restante de reserva ${currentBooking.id}`
       })
 
-      const result = await bookingService.addPayment(booking.id, {
-        amount,
-        paymentType: 'remaining',
-        paymentMethod,
-        notes: `Pago complementario - ${new Date().toLocaleDateString()}`
-      })
+      // Invalidar y refrescar las queries relacionadas
+      await queryClient.invalidateQueries({ queryKey: ['booking', currentBooking.id] })
+      await queryClient.invalidateQueries({ queryKey: ['bookings'] })
 
-      console.log('ViewBookingModal - Respuesta del servicio:', result)
-
-      if (result.data) {
-        toast.success('Pago registrado correctamente')
-        onClose() // Cerrar el modal principal para refrescar
-      } else {
-        throw new Error('No se recibió confirmación del pago')
-      }
-    } catch (error: any) {
+      // Actualizar el estado local
+      const updatedData = await bookingService.getBookingById(currentBooking.id)
+      setSelectedBooking(updatedData)
+    } catch (error) {
       console.error('Error al procesar el pago:', error)
-      toast.error(error.message || 'Error al procesar el pago')
+      toast({
+        description: 'Error al procesar el pago',
+        variant: 'destructive'
+      })
     }
   }
 
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
+  const handleCancelBooking = async (reason?: string) => {
+    if (!currentBooking) return
+
+    try {
+      await cancelBooking({
+        bookingId: currentBooking.id,
+        reason
+      })
+
+      // Cerrar los modales
+      setShowCancelModal(false)
+      onClose()
+
+      // Actualizar la UI
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+
+      // Notificar el éxito
+      onCancelSuccess()
+    } catch (error) {
+      console.error('Error al cancelar la reserva:', error)
+      toast({
+        description: 'Error al cancelar la reserva',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleCancelSuccess = () => {}
+
+  // Procesar datos solo cuando sea necesario
+  const processedData = useMemo<ProcessedData | null>(() => {
+    if (!currentBooking) return null
+
+    // Encontrar el nombre de la pista
+    const court = courts.find((c: Court) => c.id === currentBooking.court)
+    const courtName = court?.name || 'Pista no encontrada'
+
+    // Validación y procesamiento de participantes
+    const participants = Array.isArray(currentBooking.participants) ? currentBooking.participants : []
+
+    // Calcular el total de los items rentados
+    const rentedItems = currentBooking.rentedItems || []
+    const rentalsTotal = rentedItems.reduce((acc: number, item: RentalItem) => {
+      return acc + (item.pricePerUnit * item.quantity)
+    }, 0)
+
+    return {
+      courtName,
+      hasValidParticipants: participants.length > 0,
+      participants,
+      formatParticipantName: (participant: Participant) => {
+        if (!participant) return 'Usuario no registrado'
+        const name = `${participant.firstName || 'Usuario'} ${participant.lastName || 'no registrado'}`.trim()
+        return name
+      },
+      getInitial: (participant: Participant) => {
+        if (!participant || !participant.firstName) return 'U'
+        return participant.firstName.charAt(0).toUpperCase()
+      },
+      durationInMinutes: timeToMinutes(currentBooking.endTime) - timeToMinutes(currentBooking.startTime),
+      totalAmount: currentBooking.totalAmount ?? 0,
+      depositAmount: currentBooking.depositAmount ?? 0,
+      paymentMethod: currentBooking.paymentMethod ?? '',
+      paymentStatus: currentBooking.paymentStatus ?? 'pending',
+      rentalsTotal
+    }
+  }, [currentBooking, courts])
+
+  // Mejorar la lógica de renderizado
+  if (!isOpen) return null
+
+  // Solo mostrar loading en la carga inicial
+  if (isLoading && !currentBooking) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="fixed inset-0 flex items-center justify-center z-50"
+      >
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <p className="text-gray-500">Cargando datos de la reserva...</p>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // Si tenemos datos (ya sea de initialData o de la query), renderizar
+  if (currentBooking && processedData) {
+    return (
+      <>
+        <AnimatePresence>
           {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -398,10 +499,10 @@ export function ViewBookingModal({ isOpen, onClose, booking }: ViewBookingModalP
                           {/* Columna derecha: Solo Fecha y Horario */}
                           <div className="text-right pt-1">
                             <p className="text-xs font-medium text-gray-700">
-                              {format(new Date(booking.date), "dd 'de' MMMM, yyyy", { locale: es })}
+                              {format(new Date(currentBooking.date), "dd 'de' MMMM, yyyy", { locale: es })}
                             </p>
                             <p className="text-xs text-gray-500 mt-0.5">
-                              {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
+                              {formatTime(currentBooking.startTime)} - {formatTime(currentBooking.endTime)}
                             </p>
                           </div>
                         </div>
@@ -428,21 +529,21 @@ export function ViewBookingModal({ isOpen, onClose, booking }: ViewBookingModalP
                             {processedData.courtName} ({processedData.durationInMinutes} min)
                           </span>
                           <span className="text-gray-900">
-                            {formatPrice(processedData.courtPrice)}
+                            {formatPrice(processedData.totalAmount)}
                           </span>
                         </div>
                       </div>
                     </CollapsibleSection>
 
                     {/* Sección de Participantes */}
-                    <CollapsibleSection
-                      icon={<IconUsers className="h-5 w-5 text-gray-400" />}
-                      title="Participantes"
-                      count={processedData.participants.length}
-                    >
-                      <div className="space-y-2">
-                        {processedData.hasValidParticipants ? (
-                          processedData.participants.map((participant, index) => (
+                    {processedData.hasValidParticipants && (
+                      <CollapsibleSection
+                        icon={<IconUsers className="h-5 w-5 text-gray-400" />}
+                        title="Participantes"
+                        count={processedData.participants.length}
+                      >
+                        <div className="space-y-2">
+                          {processedData.participants.map((participant, index) => (
                             <div key={index} className="flex items-center gap-2">
                               <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
                                 <span className="text-xs font-medium text-gray-600">
@@ -453,32 +554,33 @@ export function ViewBookingModal({ isOpen, onClose, booking }: ViewBookingModalP
                                 {processedData.formatParticipantName(participant)}
                               </span>
                             </div>
-                          ))
-                        ) : (
-                          <p className="text-sm text-gray-500">No hay participantes registrados</p>
-                        )}
-                      </div>
-                    </CollapsibleSection>
+                          ))}
+                        </div>
+                      </CollapsibleSection>
+                    )}
 
-                    {/* Sección de Ítems - Siempre visible */}
+                    {/* Sección de Ítems */}
                     <CollapsibleSection
                       icon={<IconPackage className="h-5 w-5 text-gray-400" />}
                       title="Ítems Alquilados"
-                      count={booking.rentedItems?.length || 0}
+                      count={currentBooking.rentedItems?.length || 0}
                     >
                       <div className="space-y-2">
-                        {booking.rentedItems && booking.rentedItems.length > 0 ? (
+                        {currentBooking.rentedItems && currentBooking.rentedItems.length > 0 ? (
                           <>
-                            {booking.rentedItems.map((item, index) => (
-                              <div key={index} className="flex justify-between text-sm">
-                                <span className="text-gray-500">
-                                  {item.name} (x{item.quantity})
-                                </span>
-                                <span className="text-gray-900">
-                                  {formatPrice(item.pricePerUnit * item.quantity)}
-                                </span>
-                              </div>
-                            ))}
+                            {currentBooking.rentedItems.map((item, index) => {
+                              const itemPrice = item.pricePerUnit
+                              return (
+                                <div key={index} className="flex justify-between text-sm">
+                                  <span className="text-gray-500">
+                                    {item.name} (x{item.quantity})
+                                  </span>
+                                  <span className="text-gray-900">
+                                    {formatPrice(itemPrice * item.quantity)}
+                                  </span>
+                                </div>
+                              )
+                            })}
                             <div className="pt-2 border-t flex justify-between text-sm font-medium">
                               <span className="text-gray-900">Total Ítems</span>
                               <span className="text-gray-900">
@@ -494,11 +596,13 @@ export function ViewBookingModal({ isOpen, onClose, booking }: ViewBookingModalP
 
                     {/* Detalles de Pago */}
                     <PaymentDetails
-                      total={processedData.totalAmount}
-                      deposit={processedData.depositAmount}
-                      paymentMethod={processedData.paymentMethod}
-                      status={processedData.paymentStatus}
-                      onNewPayment={handleNewPayment}
+                      total={currentBooking.totalAmount}
+                      deposit={currentBooking.depositAmount}
+                      courtPrice={currentBooking.courtPrice}
+                      rentalPrice={currentBooking.rentalItemsPrice}
+                      paymentMethod={currentBooking.paymentMethod}
+                      status={currentBooking.paymentStatus}
+                      onNewPayment={handlePayment}
                     />
                   </motion.div>
                 </div>
@@ -511,17 +615,36 @@ export function ViewBookingModal({ isOpen, onClose, booking }: ViewBookingModalP
                 transition={{ delay: 0.35, duration: 0.3 }}
                 className="p-6 border-t bg-white"
               >
-                <button
-                  onClick={onClose}
-                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 font-medium transition-colors duration-200"
-                >
-                  Cerrar
-                </button>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={onClose}
+                    variant="outline"
+                    className="flex-1 bg-gray-50 hover:bg-gray-100"
+                  >
+                    Cerrar
+                  </Button>
+                  <Button
+                    onClick={() => setShowCancelModal(true)}
+                    variant="outline"
+                    className="flex-1 border-gray-200 hover:border-red-100 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
+                  >
+                    Cancelar Reserva
+                  </Button>
+                </div>
               </motion.div>
             </div>
           </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  )
+        </AnimatePresence>
+
+        {/* Modal de Confirmación */}
+        <CancelBookingModal
+          isOpen={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+          onConfirm={handleCancelBooking}
+        />
+      </>
+    )
+  }
+
+  return null
 } 

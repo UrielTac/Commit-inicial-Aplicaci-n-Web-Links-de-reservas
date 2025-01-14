@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useMemo } from 'react'
 import { Branch } from '@/types/database.types'
 import { supabase } from '@/services/supabase'
 import { useQuery } from '@tanstack/react-query'
+import { useOrganization } from '@/hooks/useOrganization'
 
 interface BranchContextType {
   currentBranch: Branch | null
@@ -15,6 +16,7 @@ interface BranchContextType {
 const BranchContext = createContext<BranchContextType | undefined>(undefined)
 
 export function BranchProvider({ children }: { children: React.ReactNode }) {
+  const { organizationId } = useOrganization()
   const [currentBranch, setCurrentBranch] = useState<Branch | null>(() => {
     if (typeof window === 'undefined') return null
     
@@ -28,12 +30,14 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
   })
 
   const { data: branches = [], isLoading } = useQuery({
-    queryKey: ['branches'],
+    queryKey: ['branches', organizationId],
     queryFn: async () => {
       try {
         const { data, error } = await supabase
           .from('sedes')
           .select('*')
+          .eq('empresa_id', organizationId)
+          .eq('is_active', true)
           .order('name')
 
         if (error) throw error
@@ -48,6 +52,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
         throw error
       }
     },
+    enabled: !!organizationId,
     retry: 3,
     onSuccess: (data) => {
       if (!currentBranch && data.length > 0) {

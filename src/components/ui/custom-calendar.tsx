@@ -10,12 +10,14 @@ interface CustomCalendarProps {
   selected?: Date
   onSelect?: (date: Date) => void
   className?: string
+  disabled?: (date: Date) => boolean
 }
 
 function CustomCalendar({
   selected,
   onSelect,
-  className
+  className,
+  disabled
 }: CustomCalendarProps) {
   const [currentMonth, setCurrentMonth] = React.useState(selected || new Date())
 
@@ -100,20 +102,25 @@ function CustomCalendar({
               {day}
             </div>
           ))}
-          {getDaysInMonth(currentMonth).map(({ date: dayDate, isOutside }, index) => (
-            <button
-              key={index}
-              onClick={() => onSelect?.(dayDate)}
-              className={cn(
-                "h-10 w-10 text-sm rounded-md flex items-center justify-center",
-                isOutside && "text-gray-400",
-                selected && isSameDay(dayDate, selected) && "bg-black text-white",
-                !selected || !isSameDay(dayDate, selected) && "hover:bg-gray-100"
-              )}
-            >
-              {dayDate.getDate()}
-            </button>
-          ))}
+          {getDaysInMonth(currentMonth).map(({ date: dayDate, isOutside }, index) => {
+            const isDisabled = disabled?.(dayDate) ?? false
+            return (
+              <button
+                key={index}
+                onClick={() => !isDisabled && onSelect?.(dayDate)}
+                disabled={isDisabled}
+                className={cn(
+                  "h-10 w-10 text-sm rounded-md flex items-center justify-center",
+                  isOutside && "text-gray-400",
+                  isDisabled && "text-gray-300 cursor-not-allowed",
+                  selected && isSameDay(dayDate, selected) && "bg-black text-white",
+                  !isDisabled && (!selected || !isSameDay(dayDate, selected)) && "hover:bg-gray-100"
+                )}
+              >
+                {dayDate.getDate()}
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>

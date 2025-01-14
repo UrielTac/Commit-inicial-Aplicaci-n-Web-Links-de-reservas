@@ -1,5 +1,7 @@
-import { useState } from "react"
-import type { BookingStep, BookingType, TimeSelection, ClassPaymentConfig } from "../types"
+import { useState, useCallback, useRef, useEffect } from "react"
+import type { BookingStep, TimeSelection, ClassPaymentConfig } from "../types"
+
+export type BookingType = 'class' | 'shift'
 
 interface UseBookingStateConfig {
   initialBookingType?: BookingType
@@ -7,105 +9,127 @@ interface UseBookingStateConfig {
   initialStep?: BookingStep
 }
 
+interface BookingState {
+  currentStep: BookingStep
+  selectedBookingType?: BookingType
+  selectedDate?: Date
+  selectedCourts: string[]
+  timeSelection?: TimeSelection
+  classPaymentConfig: ClassPaymentConfig
+}
+
+// Definir los pasos para cada tipo de reserva de manera estática
+const STEPS_MAP = {
+  class: {
+    'booking-type': 'class-details',
+    'class-details': 'class-schedule',
+    'class-schedule': 'class-payment',
+    'class-payment': 'confirmation'
+  },
+  shift: {
+    'booking-type': 'participants',
+    'participants': 'rentals',
+    'rentals': 'payment',
+    'payment': 'confirmation'
+  }
+} as const
+
 export function useBookingState(config?: UseBookingStateConfig) {
-  const [currentStep, setCurrentStep] = useState<BookingStep>(
-    config?.initialStep || (config?.initialBookingType === 'class' ? 'class-details' : 'time')
-  )
-  const [selectedBookingType, setSelectedBookingType] = useState<BookingType | undefined>(
-    config?.initialBookingType
-  )
-  const [selectedDate, setSelectedDate] = useState<Date>()
-  const [selectedCourts, setSelectedCourts] = useState<string[]>([])
-  const [timeSelection, setTimeSelection] = useState<TimeSelection>()
-  const [classPaymentConfig, setClassPaymentConfig] = useState<ClassPaymentConfig>({
-    availableMethods: [],
-    depositAmount: 0
-  })
-
-  const getNextStep = (currentStep: BookingStep): BookingStep => {
-    switch (currentStep) {
-      case 'booking-type':
-        return selectedBookingType === 'class' ? 'class-details' : 'time'
-      case 'class-details':
-        return 'class-schedule'
-      case 'class-schedule':
-        return 'class-payment-methods'
-      case 'class-payment-methods':
-        return 'confirmation'
-      case 'time':
-        return 'participants'
-      case 'participants':
-        return 'rentals'
-      case 'rentals':
-        return 'payment'
-      case 'payment':
-        return 'confirmation'
-      default:
-        return currentStep
+  // Usar una ref para la configuración inicial
+  const configRef = useRef(config)
+  
+  // Memoizar el estado inicial
+  const initialState = useRef<BookingState>({
+    currentStep: config?.initialStep || 'booking-type',
+    selectedBookingType: config?.initialBookingType,
+    selectedDate: undefined,
+    selectedCourts: [],
+    timeSelection: undefined,
+    classPaymentConfig: {
+      pricePerSession: 0,
+      currency: 'EUR',
+      paymentMethod: 'cash',
+      paymentStatus: 'pending'
     }
+  }).current
+
+  // Estados principales
+  const [state, setState] = useState<BookingState>(initialState)
+
+  // Función segura para actualizar el estado
+  const safeSetState = useCallback((
+    updater: (prev: BookingState) => Partial<BookingState>
+  ) => {
+    setState(prev => ({
+      ...prev,
+      ...updater(prev)
+    }))
+  }, [])
+
+  // Handlers optimizados
+  const handlers = {
+    setSelectedBookingType: useCallback((type: BookingType) => {
+      safeSetState(prev => ({ selectedBookingType: type }))
+    }, [safeSetState]),
+
+    setSelectedDate: useCallback((date: Date) => {
+      safeSetState(prev => ({ selectedDate: date }))
+    }, [safeSetState]),
+
+    setSelectedCourts: useCallback((courts: string[]) => {
+      safeSetState(prev => ({ selectedCourts: courts }))
+    }, [safeSetState]),
+
+    setTimeSelection: useCallback((time: TimeSelection) => {
+      safeSetState(prev => ({ timeSelection: time }))
+    }, [safeSetState]),
+
+    setClassPaymentConfig: useCallback((config: Partial<ClassPaymentConfig>) => {
+      safeSetState(prev => ({
+        classPaymentConfig: { ...prev.classPaymentConfig, ...config }
+      }))
+    }, [safeSetState]),
+
+    handleContinue: useCallback(() => {
+      safeSetState(prev => {
+        const bookingType = prev.selectedBookingType || 'shift'
+        const steps = STEPS_MAP[bookingType]
+        const nextStep = steps[prev.currentStep as keyof typeof steps]
+        return { currentStep: nextStep || prev.currentStep }
+      })
+    }, [safeSetState]),
+
+    handleBack: useCallback(() => {
+      safeSetState(prev => {
+        // Si estamos en el paso inicial y la selección está deshabilitada, no retroceder
+        if (prev.currentStep === configRef.current?.initialStep && configRef.current?.disableTypeSelection) {
+          return prev
+        }
+
+        // Encontrar el paso anterior basado en el tipo actual
+        const bookingType = prev.selectedBookingType || 'shift'
+        const steps = STEPS_MAP[bookingType]
+        const currentStepIndex = Object.keys(steps).indexOf(prev.currentStep)
+        const prevStep = Object.keys(steps)[currentStepIndex - 1]
+
+        return { currentStep: prevStep || prev.currentStep }
+      })
+    }, [safeSetState]),
+
+    resetState: useCallback(() => {
+      setState(initialState)
+    }, [initialState])
   }
 
-  const handleContinue = () => {
-    setCurrentStep(getNextStep(currentStep))
-  }
-
-  const handleBack = () => {
-    if (config?.initialBookingType === 'shift' && currentStep === 'participants') {
-      return
+  // Efecto para sincronizar el tipo de reserva con el paso actual
+  useEffect(() => {
+    if (config?.initialBookingType && !state.selectedBookingType) {
+      handlers.setSelectedBookingType(config.initialBookingType)
     }
-
-    switch (currentStep) {
-      case 'class-details':
-        setCurrentStep(config?.disableTypeSelection ? currentStep : 'booking-type')
-        break
-      case 'class-schedule':
-        setCurrentStep('class-details')
-        break
-      case 'class-payment-methods':
-        setCurrentStep('class-schedule')
-        break
-      case 'confirmation':
-        setCurrentStep(selectedBookingType === 'class' ? 'class-payment-methods' : 'payment')
-        break
-      case 'time':
-        setCurrentStep(config?.disableTypeSelection ? currentStep : 'booking-type')
-        break
-      case 'participants':
-        setCurrentStep('time')
-        break
-      case 'rentals':
-        setCurrentStep('participants')
-        break
-      case 'payment':
-        setCurrentStep('rentals')
-        break
-      default:
-        setCurrentStep(config?.disableTypeSelection ? currentStep : 'booking-type')
-    }
-  }
-
-  const resetState = () => {
-    setCurrentStep(config?.initialStep || (config?.initialBookingType === 'class' ? 'class-details' : 'time'))
-    setSelectedBookingType(config?.initialBookingType)
-    setSelectedDate(undefined)
-    setSelectedCourts([])
-    setTimeSelection(undefined)
-  }
+  }, [config?.initialBookingType, state.selectedBookingType, handlers.setSelectedBookingType])
 
   return {
-    currentStep,
-    selectedBookingType,
-    selectedDate,
-    selectedCourts,
-    timeSelection,
-    handleContinue,
-    handleBack,
-    resetState,
-    setSelectedBookingType,
-    setSelectedDate,
-    setSelectedCourts,
-    setTimeSelection,
-    classPaymentConfig,
-    setClassPaymentConfig,
+    ...state,
+    ...handlers
   }
 } 

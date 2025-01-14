@@ -3,6 +3,7 @@ import { ClassDetails } from "./ClassDetails"
 import { ClassSchedule } from "./ClassSchedule"
 import { ClassPaymentMethods } from "./ClassPaymentMethods"
 import { ClassConfirmationStep } from "./ClassConfirmationStep"
+import { ClassAvailability } from "./ClassAvailability"
 import { courts } from "@/lib/data"
 import type { 
   BookingStep, 
@@ -66,7 +67,16 @@ export function ClassBooking({
           />
         )
       
-      case 'class-payment-methods':
+      case 'class-availability':
+        return (
+          <ClassAvailability
+            selectedCourts={selectedCourts}
+            onCourtSelect={onCourtSelect}
+            onValidationChange={onValidationChange}
+          />
+        )
+      
+      case 'payment':
         return (
           <ClassPaymentMethods
             config={paymentConfig}

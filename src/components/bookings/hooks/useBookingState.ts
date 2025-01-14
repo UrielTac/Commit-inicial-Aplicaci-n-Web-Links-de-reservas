@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { bookingService } from '@/services/bookingService'
-import { SelectedBooking } from '@/types/bookings'
+import { type SelectedBooking } from '@/types/bookings'
 
 interface UseBookingStateProps {
   selectedDate: Date
@@ -10,45 +10,59 @@ interface UseBookingStateProps {
 
 export function useBookingState({ selectedDate, branchId }: UseBookingStateProps) {
   const [selectedBooking, setSelectedBooking] = useState<SelectedBooking | null>(null)
+  const queryClient = useQueryClient()
 
+  // Formatear la fecha para la query
+  const formattedDate = selectedDate.toISOString().split('T')[0]
+
+  // Query principal optimizada
   const {
-    data: bookings = [],
+    data: bookingsData,
     isLoading,
     isError,
-    refetch: refetchBookings
+    refetch
   } = useQuery({
-    queryKey: ['bookings', selectedDate.toISOString().split('T')[0], branchId],
-    queryFn: async () => {
-      if (!branchId) {
-        console.log('No hay branch_id seleccionado')
-        return []
-      }
-
-      const response = await bookingService.getBookingsByDate(
-        selectedDate.toISOString().split('T')[0],
-        branchId
-      )
-      
-      if (response.error) {
-        throw new Error(response.error.message)
-      }
-      
-      return response.data
-    },
-    enabled: !!branchId,
-    refetchOnMount: 'always',
+    queryKey: ['bookings', formattedDate, branchId],
+    queryFn: () => bookingService.getBookingsByDate(formattedDate, branchId),
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    gcTime: 1000 * 60 * 30, // 30 minutos
     refetchOnWindowFocus: true,
-    staleTime: 30000,
-    cacheTime: 1000 * 60 * 5,
-    retry: 2
+    retry: 2,
+    enabled: !!branchId,
+    placeholderData: (previousData) => previousData
   })
 
-  const handleBookingCreated = () => {
-    refetchBookings()
+  // Prefetch optimizado
+  useEffect(() => {
+    if (!branchId) return
+
+    const nextDay = new Date(selectedDate)
+    nextDay.setDate(nextDay.getDate() + 1)
+    const prevDay = new Date(selectedDate)
+    prevDay.setDate(prevDay.getDate() - 1)
+
+    const prefetchDates = [nextDay, prevDay]
+
+    prefetchDates.forEach(date => {
+      const formattedPrefetchDate = date.toISOString().split('T')[0]
+      queryClient.prefetchQuery({
+        queryKey: ['bookings', formattedPrefetchDate, branchId],
+        queryFn: () => bookingService.getBookingsByDate(formattedPrefetchDate, branchId),
+        staleTime: 1000 * 60 * 5
+      })
+    })
+  }, [selectedDate, branchId, queryClient])
+
+  const handleBookingCreated = async (newBooking: SelectedBooking) => {
+    if (!branchId) return
+
+    await queryClient.invalidateQueries({
+      queryKey: ['bookings', formattedDate, branchId]
+    })
   }
 
   return {
-    bookings,
+    bookings: bookingsData?.data || [],
     isLoading,
     isError,
     selectedBooking,

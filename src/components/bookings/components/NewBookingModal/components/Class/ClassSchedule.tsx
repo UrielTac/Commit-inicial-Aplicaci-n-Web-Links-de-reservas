@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/popover"
 import { TimeSelector } from "@/components/ui/time-selector"
 import { courts } from "@/lib/data"
-import { MultiSelect } from "@/components/ui/multi-select"
+import { GroupedMultiSelect } from "@/components/ui/grouped-multi-select"
+import { useGroupedCourts } from '@/hooks/useGroupedCourts'
 
 interface TimeSlot {
   id: string
@@ -50,6 +51,7 @@ export function ClassSchedule({
   onChange,
   onValidationChange
 }: ClassScheduleProps) {
+  const { courtOptions, isLoading, error } = useGroupedCourts()
   const [newInstructor, setNewInstructor] = useState<string>("")
 
   useEffect(() => {
@@ -285,17 +287,25 @@ export function ClassSchedule({
                     <label className="text-sm font-medium text-gray-700">
                       Cancha
                     </label>
-                    <MultiSelect
-                      value={slot.courtIds || []}
-                      onChange={(courts) => {
-                        const updatedSlots = config.timeSlots.map(s =>
-                          s.id === slot.id ? { ...s, courtIds: courts } : s
-                        )
-                        onChange({ ...config, timeSlots: updatedSlots })
-                      }}
-                      options={courts}
-                      placeholder="Seleccionar canchas"
-                    />
+                    {isLoading ? (
+                      <div className="w-full h-10 bg-gray-100 animate-pulse rounded-lg" />
+                    ) : error ? (
+                      <div className="w-full p-3 text-sm text-red-600 bg-red-50 rounded-lg">
+                        Error al cargar las canchas
+                      </div>
+                    ) : (
+                      <GroupedMultiSelect
+                        value={slot.courtIds || []}
+                        onChange={(courts) => {
+                          const updatedSlots = config.timeSlots.map(s =>
+                            s.id === slot.id ? { ...s, courtIds: courts } : s
+                          )
+                          onChange({ ...config, timeSlots: updatedSlots })
+                        }}
+                        options={courtOptions}
+                        placeholder="Seleccionar canchas"
+                      />
+                    )}
                   </div>
 
                   {/* Capacidad y Precio */}
@@ -395,7 +405,7 @@ export function ClassSchedule({
                         value={newInstructor}
                         onChange={(e) => setNewInstructor(e.target.value)}
                         onKeyPress={(e) => handleKeyPress(e, slot.id)}
-                        placeholder="Agregar profesor..."
+                        placeholder="Agregar profesor... (Enter para agregar)"
                         className={cn(
                           "flex-1 min-w-[200px] px-3 py-1 text-sm",
                           "border-none focus:outline-none bg-transparent"

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { OrganizationProvider } from "@/contexts/OrganizationContext"
 import { BranchProvider } from "@/contexts/BranchContext"
+import { RentalProvider } from "@/contexts/RentalContext"
 import { Toaster } from 'sonner'
 import { useState } from 'react'
 
@@ -23,8 +24,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <OrganizationProvider>
         <BranchProvider>
-          {children}
-          <Toaster richColors position="top-center" />
+          <RentalProvider>
+            {children}
+            <Toaster richColors position="top-center" />
+          </RentalProvider>
         </BranchProvider>
       </OrganizationProvider>
       {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}

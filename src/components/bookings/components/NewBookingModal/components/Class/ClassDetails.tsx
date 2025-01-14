@@ -3,6 +3,8 @@ import { useEffect } from "react"
 import { IconLock, IconQuestionMark } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
+import { MultiSelect } from "@/components/ui/multi-select"
+import { useBranchContext } from "@/contexts/BranchContext"
 import {
   Tooltip,
   TooltipContent,
@@ -18,13 +20,21 @@ interface ClassDetailsProps {
 }
 
 export function ClassDetails({ 
-  details = { name: '', description: '', visibility: 'public' }, 
+  details = { 
+    name: '', 
+    description: '', 
+    visibility: 'public' as const, 
+    branchId: [] as string[]
+  }, 
   onChange,
   onValidationChange
 }: ClassDetailsProps) {
+  const { branches } = useBranchContext()
+
   useEffect(() => {
-    onValidationChange?.(details.name.trim().length > 0)
-  }, [details.name, onValidationChange])
+    const isValid = details.name.trim().length > 0 && (details.branchId?.length ?? 0) > 0
+    onValidationChange?.(isValid)
+  }, [details.name, details.branchId, onValidationChange])
 
   const handleChange = (field: keyof IClassDetails, value: any) => {
     if (onChange) {
@@ -35,12 +45,17 @@ export function ClassDetails({
     }
   }
 
+  const branchOptions = branches?.map(branch => ({
+    id: branch.id,
+    name: branch.name
+  })) || []
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="space-y-8"
+      className="space-y-6"
     >
       {/* Nombre de la clase */}
       <div className="space-y-2">
@@ -52,7 +67,14 @@ export function ClassDetails({
           value={details.name}
           onChange={(e) => handleChange('name', e.target.value)}
           placeholder="Ej: Clase de Iniciación"
-          className="w-full pb-2 border-b border-gray-300 focus:border-black outline-none transition-colors bg-transparent"
+          className={cn(
+            "w-full px-3 py-2 rounded-lg",
+            "border border-gray-200 bg-white",
+            "focus:outline-none focus:border-gray-300",
+            "transition-colors duration-200",
+            "placeholder:text-gray-400",
+            "text-sm"
+          )}
         />
       </div>
 
@@ -65,7 +87,45 @@ export function ClassDetails({
           value={details.description}
           onChange={(e) => handleChange('description', e.target.value)}
           placeholder="Describe los detalles de la clase..."
-          className="w-full h-32 p-3 border rounded-lg focus:border-black outline-none transition-colors resize-none"
+          className={cn(
+            "w-full px-3 py-2 rounded-lg",
+            "border border-gray-200 bg-white",
+            "focus:outline-none focus:border-gray-300",
+            "transition-colors duration-200",
+            "placeholder:text-gray-400",
+            "text-sm",
+            "resize-none h-32"
+          )}
+        />
+      </div>
+
+      {/* Sede */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+          Sede
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <IconQuestionMark className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="p-3">
+                <p className="text-xs">
+                  Selecciona al menos una sede donde se impartirá la clase
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </label>
+        <MultiSelect
+          value={details.branchId || []}
+          onChange={(value: string[]) => handleChange('branchId', value)}
+          options={branchOptions}
+          placeholder="Seleccionar sedes"
         />
       </div>
 
@@ -118,15 +178,20 @@ export function ClassDetails({
       </div>
 
       {/* Mensaje de validación */}
-      {!details.name.trim() && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-[13px] text-gray-400 text-center"
-        >
-          Ingresa un nombre para la clase para continuar
-        </motion.p>
-      )}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center"
+      >
+        {(details.name.trim().length === 0 || (details.branchId?.length ?? 0) === 0) && (
+          <p className="text-[13px] text-gray-400">
+            {details.name.trim().length === 0 
+              ? "Ingresa el nombre de la clase para continuar"
+              : "Selecciona al menos una sede para continuar"
+            }
+          </p>
+        )}
+      </motion.div>
     </motion.div>
   )
 } 

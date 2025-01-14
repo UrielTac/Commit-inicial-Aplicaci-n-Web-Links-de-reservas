@@ -17,6 +17,7 @@ import { SimpleShiftBookingModal } from "./components/NewBookingModal/SimpleShif
 import { ViewBookingModal } from "./components/ViewBookingModal/ViewBookingModal"
 import { timeToMinutes } from "./utils"
 import { Z_LAYERS } from "@/constants/zIndex"
+import { useBookings } from "@/hooks/useBookings"
 
 export function BookingsTable() {
   // Estados principales

@@ -70,16 +70,31 @@ export function useItems(branchId?: string, options: UseItemsOptions = {}) {
               duration_pricing = item.duration_pricing
             }
             
-            // Convertir todos los valores a números
-            duration_pricing = Object.entries(duration_pricing).reduce((acc, [key, value]) => ({
-              ...acc,
-              [key]: Number(value)
-            }), {})
+            // Convertir todos los valores a números y asegurar que las claves sean strings
+            duration_pricing = Object.entries(duration_pricing).reduce((acc, [key, value]) => {
+              const numericKey = Number(key)
+              if (isNaN(numericKey)) return acc
+              
+              const numericValue = Number(value)
+              if (isNaN(numericValue)) return acc
+              
+              console.log('Procesando precio por duración:', {
+                itemName: item.name,
+                duration: numericKey,
+                price: numericValue
+              })
+              
+              return {
+                ...acc,
+                [numericKey.toString()]: numericValue
+              }
+            }, {})
 
             console.log('Procesando duration_pricing para item:', {
               itemName: item.name,
               originalPricing: item.duration_pricing,
-              processedPricing: duration_pricing
+              processedPricing: duration_pricing,
+              availableDurations: Object.keys(duration_pricing)
             })
           } catch (error) {
             console.error('Error procesando duration_pricing para item:', item.name, error)

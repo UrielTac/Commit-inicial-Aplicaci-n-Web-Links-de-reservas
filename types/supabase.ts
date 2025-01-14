@@ -274,6 +274,53 @@ export interface Database {
           sede_id?: string | null
         }
       }
+      bookings: {
+        Row: {
+          id: string
+          court_id: string
+          date: string
+          start_time: string
+          end_time: string
+          title: string | null
+          description: string | null
+          total_price: number
+          payment_status: 'pending' | 'partial' | 'completed'
+          payment_method: 'cash' | 'stripe' | 'transfer'
+          deposit_amount: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          court_id: string
+          date: string
+          start_time: string
+          end_time: string
+          title?: string | null
+          description?: string | null
+          total_price: number
+          payment_status: 'pending' | 'partial' | 'completed'
+          payment_method: 'cash' | 'stripe' | 'transfer'
+          deposit_amount?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          court_id?: string
+          date?: string
+          start_time?: string
+          end_time?: string
+          title?: string | null
+          description?: string | null
+          total_price?: number
+          payment_status?: 'pending' | 'partial' | 'completed'
+          payment_method?: 'cash' | 'stripe' | 'transfer'
+          deposit_amount?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

@@ -1,5 +1,9 @@
+// Definir los tipos de estado de pago como const enum
+export type PaymentStatusEnum = 'pending' | 'partial' | 'completed'
+export type PaymentMethodEnum = 'cash' | 'stripe' | 'transfer'
+
 export interface StatusHistoryEntry {
-  status: 'pending' | 'partial' | 'completed'
+  status: PaymentStatusEnum
   date: string
 }
 
@@ -26,10 +30,32 @@ export interface SelectedBooking {
     quantity: number
     pricePerUnit: number
   }[]
-  paymentStatus: 'pending' | 'partial' | 'completed'
+  paymentStatus: PaymentStatusEnum
   depositAmount: number
-  paymentMethod: string
+  paymentMethod: PaymentMethodEnum
   statusHistory?: StatusHistoryEntry[]
   title?: string
   description?: string
+}
+
+export interface BookingCreationData {
+  courtId: string
+  date: string
+  startTime: string
+  endTime: string
+  title?: string
+  description?: string
+  totalPrice: number
+  paymentStatus: PaymentStatusEnum
+  paymentMethod: PaymentMethodEnum
+  depositAmount?: number
+  participants?: Array<{
+    memberId: string
+    role: string
+  }>
+  rentalItems?: Array<{
+    itemId: string
+    quantity: number
+    pricePerUnit: number
+  }>
 } 

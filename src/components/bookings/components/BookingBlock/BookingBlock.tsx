@@ -6,7 +6,7 @@ interface BookingBlockProps {
   startTime: string
   endTime: string
   currentTime: string
-  paymentStatus: 'pending' | 'completed' | 'partial'
+  paymentStatus: 'pending' | 'completed' | 'partial' | 'cancelled'
   participants?: BookingParticipant[]
   onClick: () => void
 }
@@ -31,9 +31,12 @@ export function BookingBlock({
   participants,
   onClick
 }: BookingBlockProps) {
+  // No mostrar el bloque si está cancelado
+  if (paymentStatus === 'cancelled') return null
+
   // Obtener el nombre del primer participante
   const participantName = participants?.[0] 
-    ? `${participants[0].first_name} ${participants[0].last_name}`.trim()
+    ? `${participants[0].firstName} ${participants[0].lastName}`.trim()
     : 'Sin participante'
 
   const timeToMinutes = (time: string): number => {

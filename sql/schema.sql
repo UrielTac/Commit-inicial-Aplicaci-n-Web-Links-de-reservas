@@ -11,7 +11,10 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- Luego creamos las tablas que los utilizan
+-- Eliminar solo la tabla bookings
+DROP TABLE IF EXISTS public.bookings CASCADE;
+
+-- Recrear la tabla bookings
 create table public.bookings (
   id uuid default gen_random_uuid() primary key,
   court_id uuid references public.courts(id) not null,
@@ -28,29 +31,9 @@ create table public.bookings (
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
-create table public.booking_rentals (
-  id uuid default gen_random_uuid() primary key,
-  booking_id uuid references public.bookings(id) on delete cascade not null,
-  item_id uuid references public.items(id) not null,
-  quantity integer not null check (quantity > 0),
-  price_per_unit numeric(10,2) not null,
-  total_price numeric(10,2) not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-create table public.booking_participants (
-  id uuid default gen_random_uuid() primary key,
-  booking_id uuid references public.bookings(id) on delete cascade not null,
-  member_id uuid references public.members(id) not null,
-  role participant_role_enum default 'player',
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
 -- Índices para optimizar consultas frecuentes
 create index bookings_court_id_date_idx on public.bookings(court_id, date);
 create index bookings_date_idx on public.bookings(date);
-create index booking_participants_booking_id_idx on public.booking_participants(booking_id);
-create index booking_rentals_booking_id_idx on public.booking_rentals(booking_id);
 
 -- Triggers para actualizar updated_at
 create or replace function update_updated_at_column()
@@ -91,29 +74,6 @@ create trigger check_booking_overlap_trigger
   for each row
   execute function check_booking_overlap();
 
--- Función para validar disponibilidad de items
-create or replace function check_item_availability()
-returns trigger as $$
-declare
-  available_quantity integer;
-begin
-  select stock into available_quantity
-  from items
-  where id = new.item_id;
-
-  if available_quantity < new.quantity then
-    raise exception 'No hay suficiente stock disponible para el item %', new.item_id;
-  end if;
-  return new;
-end;
-$$ language plpgsql;
-
--- Trigger para validar disponibilidad de items antes de insertar
-create trigger check_item_availability_trigger
-  before insert on booking_rentals
-  for each row
-  execute function check_item_availability();
-
 -- Modificar la tabla bookings
 ALTER TABLE public.bookings 
   ALTER COLUMN payment_status SET DEFAULT 'pending',
@@ -156,183 +116,66 @@ CREATE TRIGGER ensure_payment_consistency_trigger
   FOR EACH ROW
   EXECUTE FUNCTION ensure_payment_consistency();
 
--- Crear tipo ENUM para los planes
-DO $$ BEGIN
-    CREATE TYPE plan_type_enum AS ENUM ('free', 'premium');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- Crear tabla de clientes
-create table public.clientes (
-  id uuid default gen_random_uuid() primary key,
-  email varchar(255) unique not null,
-  nombre varchar(255) not null,
-  password_hash text not null,
-  plan_type plan_type_enum default 'free' not null,
-  empresa_id uuid references public.empresas(id),
-  is_onboarding_completed boolean default false,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- Índices para optimizar consultas
-create index clientes_email_idx on public.clientes(email);
-create index clientes_empresa_id_idx on public.clientes(empresa_id);
-
--- Trigger para actualizar updated_at
-create trigger update_clientes_updated_at
-  before update on public.clientes
-  for each row
-  execute function update_updated_at_column();
-
--- Función para crear empresa automáticamente
-CREATE OR REPLACE FUNCTION create_empresa_for_cliente()
-RETURNS TRIGGER AS $$
+-- Crear la función create_booking_v2
+CREATE OR REPLACE FUNCTION create_booking_v2(
+  p_court_id UUID,
+  p_date DATE,
+  p_start_time TIME,
+  p_end_time TIME,
+  p_total_price NUMERIC,
+  p_payment_status TEXT,
+  p_payment_method TEXT,
+  p_deposit_amount NUMERIC,
+  p_title TEXT DEFAULT NULL,
+  p_description TEXT DEFAULT NULL,
+  p_participants JSONB DEFAULT '[]',
+  p_rental_items JSONB DEFAULT '[]'
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
-    new_empresa_id uuid;
+  new_booking_id UUID;
+  v_payment_status payment_status_enum;
+  v_payment_method payment_method_enum;
+  participant_record RECORD;
+  rental_record RECORD;
+  v_participants JSONB;
+  v_rental_items JSONB;
 BEGIN
-    -- Crear nueva empresa con datos mínimos
-    INSERT INTO public.empresas (
-        name,
-        business_name,
-        email,
-        is_active
-    ) VALUES (
-        NEW.nombre, -- Usar el nombre del cliente como nombre inicial
-        NEW.nombre, -- Usar el nombre del cliente como business_name inicial
-        NEW.email,  -- Usar el email del cliente
-        true       -- La empresa está activa por defecto
-    ) RETURNING id INTO new_empresa_id;
+  -- Asegurar que los arrays JSON sean válidos
+  v_participants := COALESCE(p_participants, '[]'::jsonb);
+  v_rental_items := COALESCE(p_rental_items, '[]'::jsonb);
 
-    -- Asignar el ID de la empresa al cliente
-    NEW.empresa_id := new_empresa_id;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+  -- Validar que sean arrays
+  IF jsonb_typeof(v_participants) != 'array' THEN
+    RAISE EXCEPTION 'participants debe ser un array JSON';
+  END IF;
 
--- Crear trigger para ejecutar la función antes de insertar
-CREATE TRIGGER create_empresa_before_cliente_insert
-    BEFORE INSERT ON public.clientes
-    FOR EACH ROW
-    EXECUTE FUNCTION create_empresa_for_cliente();
-  
+  IF jsonb_typeof(v_rental_items) != 'array' THEN
+    RAISE EXCEPTION 'rental_items debe ser un array JSON';
+  END IF;
 
--- Crear enum para el estado del pago
-create type payment_status_type as enum (
-  'pending',    -- Pendiente
-  'completed',  -- Completado
-  'failed',     -- Fallido
-  'refunded',   -- Reembolsado
-  'partially_refunded' -- Reembolsado parcialmente
-);
+  -- Convertir y validar los enums
+  BEGIN
+    -- Validar y convertir payment_status
+    IF p_payment_status NOT IN ('pending', 'partial', 'completed') THEN
+      RAISE EXCEPTION 'Invalid payment_status: %. Must be one of: pending, partial, completed', p_payment_status;
+    END IF;
+    v_payment_status := p_payment_status::payment_status_enum;
 
--- Crear enum para el tipo de pago
-create type payment_type as enum (
-  'booking',      -- Pago de reserva
-  'deposit',      -- Seña
-  'remaining',    -- Pago restante
-  'refund'        -- Reembolso
-);
+    -- Validar y convertir payment_method
+    IF p_payment_method NOT IN ('cash', 'stripe', 'transfer') THEN
+      RAISE EXCEPTION 'Invalid payment_method: %. Must be one of: cash, stripe, transfer', p_payment_method;
+    END IF;
+    v_payment_method := p_payment_method::payment_method_enum;
+  EXCEPTION 
+    WHEN invalid_text_representation THEN
+      RAISE EXCEPTION 'Invalid enum conversion: payment_status=%, payment_method=%', p_payment_status, p_payment_method;
+  END;
 
--- Tabla de pagos
-create table public.payments (
-  id uuid default gen_random_uuid() primary key,
-  booking_id uuid references public.bookings(id) not null,
-  amount numeric(10,2) not null,
-  payment_type payment_type not null,
-  payment_method payment_method_enum not null,
-  payment_status payment_status_type default 'pending',
-  transaction_id varchar(255),  -- ID externo (ej: ID de Stripe)
-  receipt_url text,            -- URL del comprobante
-  metadata jsonb,              -- Datos adicionales del pago
-  notes text,                  -- Notas internas
-  refund_reason text,          -- Razón del reembolso si aplica
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- Índices
-create index payments_booking_id_idx on public.payments(booking_id);
-create index payments_created_at_idx on public.payments(created_at);
-create index payments_payment_status_idx on public.payments(payment_status);
-
--- Trigger para updated_at
-create trigger update_payments_updated_at
-  before update on public.payments
-  for each row
-  execute function update_updated_at_column();
-
--- Función para calcular el total pagado de una reserva
-create or replace function get_booking_total_paid(booking_id uuid)
-returns numeric as $$
-declare
-  total_paid numeric;
-begin
-  select coalesce(sum(
-    case 
-      when payment_type = 'refund' then -amount
-      else amount
-    end
-  ), 0)
-  into total_paid
-  from payments
-  where booking_id = $1
-  and payment_status = 'completed';
-  
-  return total_paid;
-end;
-$$ language plpgsql;
-
--- Función para validar que el total de pagos no exceda el precio de la reserva
-create or replace function validate_payment_amount()
-returns trigger as $$
-declare
-  booking_price numeric;
-  total_paid numeric;
-begin
-  -- Obtener precio de la reserva
-  select total_price into booking_price
-  from bookings
-  where id = new.booking_id;
-
-  -- Calcular total pagado incluyendo el nuevo pago
-  select get_booking_total_paid(new.booking_id) + 
-    case 
-      when new.payment_type = 'refund' then -new.amount
-      else new.amount
-    end
-  into total_paid;
-
-  -- Validar que no exceda el precio total
-  if total_paid > booking_price then
-    raise exception 'El total de pagos no puede exceder el precio de la reserva';
-  end if;
-
-  return new;
-end;
-$$ language plpgsql;
-
--- Trigger para validar montos
-create trigger validate_payment_amount_trigger
-  before insert or update on payments
-  for each row
-  execute function validate_payment_amount();
-
-
-create or replace function create_booking(booking_data jsonb)
-returns jsonb
-language plpgsql
-security definer
-as $$
-declare
-  new_booking_id uuid;
-  participant record;
-  rental record;
-begin
-  -- Insertar la reserva principal
-  insert into bookings (
+  -- Insertar la reserva
+  INSERT INTO bookings (
     court_id,
     date,
     start_time,
@@ -342,133 +185,216 @@ begin
     total_price,
     payment_status,
     payment_method,
-    deposit_amount,
-    created_at,
-    updated_at
+    deposit_amount
   )
-  values (
-    (booking_data->>'court_id')::uuid,
-    (booking_data->>'date')::date,
-    (booking_data->>'start_time')::time,
-    (booking_data->>'end_time')::time,
-    booking_data->>'title',
-    booking_data->>'description',
-    (booking_data->>'total_price')::numeric,
-    (booking_data->>'payment_status')::text,
-    (booking_data->>'payment_method')::text,
-    (booking_data->>'deposit_amount')::numeric,
-    now(),
-    now()
+  VALUES (
+    p_court_id,
+    p_date,
+    p_start_time,
+    p_end_time,
+    p_title,
+    p_description,
+    p_total_price,
+    v_payment_status,
+    v_payment_method,
+    p_deposit_amount
   )
-  returning id into new_booking_id;
+  RETURNING id INTO new_booking_id;
 
-  -- Insertar participantes
-  if booking_data ? 'participants' then
-    for participant in select * from jsonb_array_elements(booking_data->'participants')
-    loop
-      insert into booking_participants (
+  -- Insertar participantes si existen
+  IF jsonb_array_length(v_participants) > 0 THEN
+    FOR participant_record IN 
+      SELECT * FROM jsonb_to_recordset(v_participants) 
+      AS x(member_id UUID, role TEXT)
+    LOOP
+      INSERT INTO booking_participants (
         booking_id,
         member_id,
-        role,
-        created_at,
-        updated_at
-      )
-      values (
+        role
+      ) VALUES (
         new_booking_id,
-        (participant->>'member_id')::uuid,
-        (participant->>'role')::text,
-        now(),
-        now()
+        participant_record.member_id,
+        COALESCE(participant_record.role, 'player')::participant_role_enum
       );
-    end loop;
-  end if;
+    END LOOP;
+  END IF;
 
-  -- Insertar items rentados
-  if booking_data ? 'rental_items' then
-    for rental in select * from jsonb_array_elements(booking_data->'rental_items')
-    loop
-      insert into booking_rentals (
+  -- Insertar items rentados si existen
+  IF jsonb_array_length(v_rental_items) > 0 THEN
+    FOR rental_record IN 
+      SELECT * FROM jsonb_to_recordset(v_rental_items) 
+      AS x(item_id UUID, quantity INT, price_per_unit NUMERIC)
+    LOOP
+      INSERT INTO booking_rentals (
         booking_id,
         item_id,
         quantity,
         price_per_unit,
-        total_price,
-        created_at,
-        updated_at
-      )
-      values (
+        total_price
+      ) VALUES (
         new_booking_id,
-        (rental->>'item_id')::uuid,
-        (rental->>'quantity')::int,
-        (rental->>'price_per_unit')::numeric,
-        (rental->>'quantity')::int * (rental->>'price_per_unit')::numeric,
-        now(),
-        now()
+        rental_record.item_id,
+        rental_record.quantity,
+        rental_record.price_per_unit,
+        rental_record.quantity * rental_record.price_per_unit
       );
-    end loop;
-  end if;
+    END LOOP;
+  END IF;
 
-  return jsonb_build_object(
-    'id', new_booking_id,
-    'success', true
+  -- Retornar los datos completos
+  RETURN (
+    SELECT jsonb_build_object(
+      'id', b.id,
+      'court_id', b.court_id,
+      'date', b.date,
+      'start_time', b.start_time,
+      'end_time', b.end_time,
+      'title', b.title,
+      'description', b.description,
+      'total_price', b.total_price,
+      'payment_status', b.payment_status,
+      'payment_method', b.payment_method,
+      'deposit_amount', b.deposit_amount,
+      'created_at', b.created_at,
+      'updated_at', b.updated_at,
+      'participants', COALESCE(
+        (
+          SELECT jsonb_agg(jsonb_build_object(
+            'id', bp.id,
+            'member_id', bp.member_id,
+            'role', bp.role
+          ))
+          FROM booking_participants bp
+          WHERE bp.booking_id = b.id
+        ),
+        '[]'::jsonb
+      ),
+      'rental_items', COALESCE(
+        (
+          SELECT jsonb_agg(jsonb_build_object(
+            'id', br.id,
+            'item_id', br.item_id,
+            'quantity', br.quantity,
+            'price_per_unit', br.price_per_unit,
+            'total_price', br.total_price
+          ))
+          FROM booking_rentals br
+          WHERE br.booking_id = b.id
+        ),
+        '[]'::jsonb
+      )
+    )
+    FROM bookings b
+    WHERE b.id = new_booking_id
   );
-end;
+END;
 $$;
 
+-- Otorgar permisos para la nueva función
+GRANT EXECUTE ON FUNCTION create_booking_v2 TO authenticated;
+GRANT EXECUTE ON FUNCTION create_booking_v2 TO service_role;
 
--- Primero creamos los tipos ENUM si no existen
-DO $$ BEGIN
-    CREATE TYPE payment_status_enum AS ENUM ('pending', 'partial', 'completed');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE payment_method_enum AS ENUM ('cash', 'stripe', 'transfer');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
-
--- Modificar la tabla bookings
-ALTER TABLE public.bookings 
-  ALTER COLUMN payment_status SET DEFAULT 'pending',
-  ALTER COLUMN deposit_amount DROP DEFAULT,
-  ADD CONSTRAINT check_payment_consistency 
-    CHECK (
-      (payment_status = 'completed' AND deposit_amount = total_price) OR
-      (payment_status = 'partial' AND deposit_amount < total_price) OR
-      (payment_status = 'pending')
-    );
-
--- Agregar un trigger para mantener la consistencia
-CREATE OR REPLACE FUNCTION ensure_payment_consistency()
-RETURNS TRIGGER AS $$
+-- Agregar relación entre booking_participants y members si no existe
+DO $$ 
 BEGIN
-  -- Si el depósito es igual al total, forzar estado completed
-  IF NEW.deposit_amount = NEW.total_price THEN
-    NEW.payment_status := 'completed';
-  -- Si el depósito es menor al total y mayor a 0, forzar estado partial
-  ELSIF NEW.deposit_amount > 0 AND NEW.deposit_amount < NEW.total_price THEN
-    NEW.payment_status := 'partial';
-  -- Si no hay depósito, forzar estado pending
-  ELSE
-    NEW.payment_status := 'pending';
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM pg_constraint 
+    WHERE conname = 'booking_participants_member_id_fkey'
+  ) THEN
+    ALTER TABLE public.booking_participants
+    ADD CONSTRAINT booking_participants_member_id_fkey
+    FOREIGN KEY (member_id) REFERENCES public.members(id);
   END IF;
+END $$;
 
-  -- Si el estado es completed, forzar depósito igual al total
-  IF NEW.payment_status = 'completed' THEN
-    NEW.deposit_amount := NEW.total_price;
+-- Agregar índice para mejorar el rendimiento de las consultas
+CREATE INDEX IF NOT EXISTS idx_booking_participants_member_id 
+ON public.booking_participants(member_id);
+
+-- Agregar relación entre bookings y booking_participants si no existe
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM pg_constraint 
+    WHERE conname = 'booking_participants_booking_id_fkey'
+  ) THEN
+    ALTER TABLE public.booking_participants
+    ADD CONSTRAINT booking_participants_booking_id_fkey
+    FOREIGN KEY (booking_id) REFERENCES public.bookings(id)
+    ON DELETE CASCADE;
+
+    -- Crear índice para mejorar el rendimiento de las consultas
+    CREATE INDEX IF NOT EXISTS idx_booking_participants_booking_id 
+    ON public.booking_participants(booking_id);
   END IF;
+END $$;
 
-  RETURN NEW;
+CREATE OR REPLACE FUNCTION get_bookings_by_date(p_date DATE)
+RETURNS TABLE (
+  id UUID,
+  court_id UUID,
+  date DATE,
+  start_time TIME,
+  end_time TIME,
+  total_price DECIMAL,
+  payment_status TEXT,
+  payment_method TEXT,
+  deposit_amount DECIMAL,
+  title TEXT,
+  description TEXT,
+  courts JSONB,
+  booking_participants JSONB
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    b.id,
+    b.court_id,
+    b.date,
+    b.start_time,
+    b.end_time,
+    b.total_price,
+    b.payment_status::TEXT as payment_status,
+    b.payment_method::TEXT as payment_method,
+    b.deposit_amount,
+    b.title::TEXT,
+    b.description::TEXT,
+    jsonb_build_object(
+      'id', c.id,
+      'name', c.name,
+      'branch_id', c.branch_id
+    ) AS courts,
+    COALESCE(
+      jsonb_agg(
+        CASE WHEN bp.id IS NOT NULL THEN
+          jsonb_build_object(
+            'id', bp.id,
+            'member_id', bp.member_id,
+            'role', bp.role,
+            'members', CASE WHEN m.id IS NOT NULL THEN
+              jsonb_build_object(
+                'id', m.id,
+                'first_name', m.first_name,
+                'last_name', m.last_name,
+                'email', m.email,
+                'phone', m.phone
+              )
+            ELSE NULL END
+          )
+        ELSE NULL END
+      ) FILTER (WHERE bp.id IS NOT NULL),
+      '[]'::jsonb
+    ) AS booking_participants
+  FROM bookings b
+  INNER JOIN courts c ON b.court_id = c.id
+  LEFT JOIN booking_participants bp ON b.id = bp.booking_id
+  LEFT JOIN members m ON bp.member_id = m.id
+  WHERE b.date = p_date
+  GROUP BY b.id, b.court_id, b.date, b.start_time, b.end_time, b.total_price,
+           b.payment_status, b.payment_method, b.deposit_amount, b.title,
+           b.description, c.id, c.name, c.branch_id;
 END;
 $$ LANGUAGE plpgsql;
-
--- Crear el trigger
-DROP TRIGGER IF EXISTS ensure_payment_consistency_trigger ON public.bookings;
-CREATE TRIGGER ensure_payment_consistency_trigger
-  BEFORE INSERT OR UPDATE ON public.bookings
-  FOR EACH ROW
-  EXECUTE FUNCTION ensure_payment_consistency();
   

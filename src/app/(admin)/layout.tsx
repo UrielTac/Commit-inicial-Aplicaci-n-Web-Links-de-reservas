@@ -1,6 +1,7 @@
 "use client"
 
 import { Sidebar } from "@/components/sidebar"
+import { Toaster } from "@/components/ui/toaster"
 
 export default function AdminLayout({
   children,
@@ -13,6 +14,7 @@ export default function AdminLayout({
       <main className="flex-1">
         {children}
       </main>
+      <Toaster />
     </div>
   )
 } 

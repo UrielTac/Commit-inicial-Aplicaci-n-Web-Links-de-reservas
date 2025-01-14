@@ -4,8 +4,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { BookingsTable } from "@/components/bookings/BookingsTable"
 import { CourtsTable } from "@/components/bookings/CourtsTable"
 import { NewBookingModal } from "@/components/bookings/NewBookingModal/index"
+import { useBookings } from '@/hooks/useBookings'
 
 export default function BookingsPage() {
+  const { bookings, isLoading } = useBookings()
+  
   return (
     <div className="flex flex-col gap-4">
       <Tabs defaultValue="bookings" className="w-full">

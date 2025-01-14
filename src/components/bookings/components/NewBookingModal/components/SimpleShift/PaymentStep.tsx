@@ -11,10 +11,9 @@ import { timeToMinutes } from '@/lib/time-utils'
 import type { Court } from '@/types/court'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useRentalContext } from '@/contexts/RentalContext'
 
 interface PaymentStepProps {
-  totalAmount: number
-  selectedRentals: { itemId: string; quantity: number }[]
   selectedCourts: string[]
   startTime: string
   endTime: string
@@ -24,23 +23,22 @@ interface PaymentStepProps {
 }
 
 export function PaymentStep({ 
-  totalAmount: initialTotal,
-  selectedRentals = [],
-  selectedCourts = [],
-  startTime = '00:00',
-  endTime = '00:00',
+  selectedCourts,
+  startTime,
+  endTime,
   onPaymentChange,
   onNext,
   onBack
 }: PaymentStepProps) {
   const { currentBranch } = useBranchContext()
+  const { rentals, totalPrice: rentalsPriceTotal } = useRentalContext()
   const { data: courts = [] } = useCourts({ branchId: currentBranch?.id })
   const { data: items = [] } = useItems(currentBranch?.id)
   const [manualPrice, setManualPrice] = useState<number | null>(null)
   const [showCustomPriceInput, setShowCustomPriceInput] = useState(false)
   const [paymentState, setPaymentState] = useState<PaymentDetails>(() => ({
-    totalAmount: initialTotal,
-    deposit: initialTotal,
+    totalAmount: 0,
+    deposit: 0,
     paymentStatus: 'completed',
     paymentMethod: 'cash',
     isPaid: false
@@ -66,7 +64,7 @@ export function PaymentStep({
     const durationInMinutes = reservationDuration
 
     return selectedCourts.reduce((total, courtId) => {
-      const court = courts.find(c => c.id === courtId)
+      const court = courts.find((court: Court) => court.id === courtId)
       if (!court) return total
 
       // Si hay un precio manual y no hay precio configurado, usar el manual
@@ -84,26 +82,10 @@ export function PaymentStep({
     }, 0)
   }, [courts, selectedCourts, reservationDuration, manualPrice])
 
-  // Calcular el precio total de los artículos
-  const rentalsPriceTotal = useMemo(() => {
-    if (!items || !selectedRentals.length) return 0
-
-    return selectedRentals.reduce((total, rental) => {
-      const item = items.find(i => i.id === rental.itemId)
-      if (!item?.duration_pricing) return total
-
-      // Usar el precio base del item como en RentalStep
-      const defaultDuration = item.default_duration || 60
-      const basePrice = item.duration_pricing[defaultDuration.toString()] || 0
-
-      return total + (basePrice * rental.quantity)
-    }, 0)
-  }, [items, selectedRentals])
-
   // Verificar si la duración tiene precio configurado
   useEffect(() => {
     const hasPriceConfigured = selectedCourts.every(courtId => {
-      const court = courts.find(c => c.id === courtId)
+      const court = courts.find((court: Court) => court.id === courtId)
       if (!court?.duration_pricing) return false
       return court.duration_pricing[reservationDuration.toString()] !== undefined
     })
@@ -117,44 +99,91 @@ export function PaymentStep({
   // Manejar cambio de precio manual
   const handleManualPriceChange = useCallback((value: number | null) => {
     setManualPrice(value)
-    // Forzar actualización inmediata del estado de pago con el nuevo precio
-    const updatedTotal = (value || 0) + rentalsPriceTotal
-    const newState = {
-      ...paymentState,
-      totalAmount: updatedTotal,
-      deposit: paymentState.paymentStatus === 'completed' ? updatedTotal : Math.ceil(updatedTotal * 0.3),
-      manualPrice: value
+    
+    // Calcular el nuevo total incluyendo rentals
+    const newTotal = (value || 0) + rentalsPriceTotal
+    
+    // Mantener el depósito actual si es válido
+    let newDeposit = paymentState.deposit
+    
+    // Ajustar el depósito solo si es necesario
+    if (paymentState.paymentStatus === 'completed') {
+      newDeposit = newTotal
+    } else if (paymentState.paymentStatus === 'partial') {
+      if (newDeposit === 0 || newDeposit > newTotal) {
+        newDeposit = Math.ceil(newTotal * 0.3)
+      } else {
+        // Mantener la proporción actual del depósito
+        const ratio = paymentState.deposit / paymentState.totalAmount
+        newDeposit = Math.min(Math.round(newTotal * ratio * 100) / 100, newTotal)
+      }
     }
+
+    const newState: PaymentDetails = {
+      ...paymentState,
+      totalAmount: newTotal,
+      deposit: newDeposit,
+      manualPrice: value || undefined,
+      courtPrice: value || 0
+    }
+
+    console.log('Actualizando estado con precio manual:', {
+      manualPrice: value,
+      newTotal,
+      currentDeposit: paymentState.deposit,
+      newDeposit,
+      newState
+    })
+
     setPaymentState(newState)
     onPaymentChange(newState)
   }, [rentalsPriceTotal, paymentState, onPaymentChange])
 
-  // Actualizar el estado cuando cambian los montos o el precio manual
+  // Efecto para actualizar el estado cuando cambian los montos o el precio manual
   useEffect(() => {
-    const newTotal = courtsPriceTotal + rentalsPriceTotal
+    const effectiveCourtPrice = manualPrice !== null ? manualPrice : courtsPriceTotal
+    const newTotal = effectiveCourtPrice + rentalsPriceTotal
+
     console.log('Calculando nuevo total:', {
-      courtsPriceTotal,
+      effectiveCourtPrice,
       rentalsPriceTotal,
       newTotal,
       manualPrice,
-      currentTotal: paymentState.totalAmount
+      currentTotal: paymentState.totalAmount,
+      currentDeposit: paymentState.deposit,
+      currentStatus: paymentState.paymentStatus
     })
 
-    if (newTotal > 0 && newTotal !== paymentState.totalAmount) {
+    if (newTotal > 0 && Math.abs(newTotal - paymentState.totalAmount) > 0.01) {
+      let newDeposit = paymentState.deposit
+      const depositRatio = paymentState.deposit / paymentState.totalAmount
+
+      if (paymentState.paymentStatus === 'completed') {
+        newDeposit = newTotal
+      } else if (paymentState.deposit === 0) {
+        newDeposit = paymentState.paymentStatus === 'partial' ? Math.ceil(newTotal * 0.3) : 0
+      } else if (depositRatio > 0) {
+        newDeposit = Math.min(Math.round(newTotal * depositRatio * 100) / 100, newTotal)
+      }
+
       const newState = {
         ...paymentState,
         totalAmount: newTotal,
-        deposit: paymentState.paymentStatus === 'completed' ? newTotal : Math.ceil(newTotal * 0.3),
-        manualPrice: manualPrice
+        deposit: newDeposit,
+        manualPrice: manualPrice !== null ? manualPrice : undefined,
+        courtPrice: effectiveCourtPrice,
+        rentalItemsPrice: rentalsPriceTotal
       }
+      
       setPaymentState(newState)
       onPaymentChange(newState)
     }
-  }, [courtsPriceTotal, rentalsPriceTotal, paymentState, onPaymentChange, manualPrice])
+  }, [courtsPriceTotal, rentalsPriceTotal, manualPrice])
 
   // Mover el renderCustomPriceInput después del método de pago y aplicar los estilos necesarios
   const renderCustomPriceInput = () => {
-    if (!showCustomPriceInput) return null;
+    // No mostrar el campo si es una reserva simple o si hay precio configurado
+    if (!showCustomPriceInput || paymentState.paymentStatus === 'pending') return null;
 
     return (
       <motion.div
@@ -192,12 +221,43 @@ export function PaymentStep({
 
   // Función para actualizar el estado de pago
   const handlePaymentTypeChange = (type: 'completed' | 'partial' | 'pending') => {
+    const total = calculateTotalAmount()
+    let newDeposit = 0
+
+    // Si cambiamos a reserva simple, resetear el precio manual
+    if (type === 'pending') {
+      setManualPrice(null)
+    }
+
+    if (type === 'completed') {
+      newDeposit = total
+    } else if (type === 'partial') {
+      // Si ya hay un depósito válido, mantenerlo
+      if (paymentState.deposit > 0 && paymentState.deposit < total) {
+        newDeposit = paymentState.deposit
+      } else {
+        newDeposit = Math.ceil(total * 0.3)
+      }
+    }
+
     const newState: PaymentDetails = {
       ...paymentState,
+      totalAmount: total,
       paymentStatus: type,
-      deposit: type === 'completed' ? paymentState.totalAmount : Math.ceil(paymentState.totalAmount * 0.3),
-      isPaid: false
+      deposit: newDeposit,
+      isPaid: false,
+      // Resetear el precio manual si es reserva simple
+      manualPrice: type === 'pending' ? undefined : (manualPrice || undefined),
+      courtPrice: type === 'pending' ? courtsPriceTotal : (manualPrice || courtsPriceTotal)
     }
+
+    console.log('Actualizando tipo de pago:', {
+      type,
+      total,
+      newDeposit,
+      manualPrice,
+      newState
+    })
 
     setPaymentState(newState)
     onPaymentChange(newState)
@@ -205,17 +265,98 @@ export function PaymentStep({
 
   // Manejador para cambio de depósito
   const handleDepositChange = (value: number) => {
-    const newDeposit = Math.min(Math.max(0, value), paymentState.totalAmount)
+    const total = calculateTotalAmount()
+    
+    // Permitir cualquier valor, solo limitado por el total
+    const newDeposit = Math.min(value, total)
+    
+    // Determinar el estado de pago basado en el depósito
+    let newPaymentStatus = paymentState.paymentStatus
+    if (Math.abs(newDeposit - total) < 0.01) {
+      newPaymentStatus = 'completed'
+    } else if (newDeposit > 0) {
+      newPaymentStatus = 'partial'
+    } else {
+      newPaymentStatus = 'pending'
+    }
+    
     const newState: PaymentDetails = {
       ...paymentState,
+      totalAmount: total,
       deposit: newDeposit,
-      paymentStatus: newDeposit === paymentState.totalAmount ? 'completed' : 'partial',
-      isPaid: false
+      paymentStatus: newPaymentStatus,
+      isPaid: false,
+      manualPrice: manualPrice || undefined,
+      courtPrice: manualPrice || courtsPriceTotal
     }
+
+    console.log('Actualizando depósito manualmente:', {
+      value,
+      newDeposit,
+      total,
+      manualPrice,
+      oldState: paymentState,
+      newState
+    })
 
     setPaymentState(newState)
     onPaymentChange(newState)
   }
+
+  const calculateTotalAmount = useCallback(() => {
+    // Si hay un precio manual, usarlo directamente
+    if (manualPrice !== null) {
+      return manualPrice + rentalsPriceTotal
+    }
+
+    // Si no hay precio manual, calcular basado en la duración
+    try {
+      if (!selectedCourts.length) return 0;
+
+      // Calcular duración en minutos
+      const startMinutes = timeToMinutes(startTime)
+      const endMinutes = timeToMinutes(endTime)
+      const duration = endMinutes - startMinutes
+
+      // Calcular precio de las canchas
+      const courtPrice = selectedCourts.reduce((total, courtId) => {
+        const court = courts.find((court: Court) => court.id === courtId)
+        if (!court?.duration_pricing) return total
+
+        const durationKey = duration.toString()
+        const price = Number(court.duration_pricing[durationKey] || 0)
+        return total + price
+      }, 0)
+
+      return courtPrice + rentalsPriceTotal
+    } catch (error) {
+      console.error('Error al calcular total:', error)
+      return 0
+    }
+  }, [selectedCourts, courts, startTime, endTime, manualPrice, rentalsPriceTotal])
+
+  // Efecto para mantener sincronizado el estado con el total calculado
+  useEffect(() => {
+    const total = calculateTotalAmount()
+    if (total > 0 && total !== paymentState.totalAmount) {
+      const newState = {
+        ...paymentState,
+        totalAmount: total,
+        // Mantener el depósito actual si existe, sino usar el total para completed
+        deposit: paymentState.paymentStatus === 'completed' ? total : 
+                paymentState.deposit || 0
+      }
+      
+      console.log('Sincronizando estado con nuevo total:', {
+        total,
+        oldState: paymentState,
+        newState
+      })
+
+      setPaymentState(newState)
+      onPaymentChange(newState)
+    }
+  }, [calculateTotalAmount, paymentState.paymentStatus])
 
   return (
     <div className="space-y-6">
@@ -324,10 +465,15 @@ export function PaymentStep({
             </label>
             <input
               type="number"
-              min={Math.ceil(paymentState.totalAmount * 0.3)}
-              max={paymentState.totalAmount}
-              value={paymentState.deposit}
-              onChange={(e) => handleDepositChange(Number(e.target.value))}
+              min="0"
+              step="0.01"
+              value={paymentState.deposit || ''}
+              onChange={(e) => {
+                const value = e.target.value === '' ? 0 : Number(e.target.value);
+                if (!isNaN(value)) {
+                  handleDepositChange(value);
+                }
+              }}
               className={cn(
                 "w-full px-3 py-2",
                 "rounded-lg",
@@ -413,7 +559,7 @@ export function PaymentStep({
             </div>
           )}
           
-          {selectedRentals.length > 0 && (
+          {rentals.length > 0 && (
             <div className="flex justify-between text-sm text-gray-600">
               <span>Alquiler de equipamiento:</span>
               <span>${rentalsPriceTotal}</span>
@@ -440,6 +586,50 @@ export function PaymentStep({
             )}
           </div>
         </motion.div>
+      )}
+
+      {/* Mostrar el resumen de rentals si hay items seleccionados */}
+      {rentals.length > 0 && (
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-gray-900">
+            Artículos Rentados
+          </h4>
+          <div className="space-y-2">
+            {rentals.map((rental) => {
+              const item = items.find(i => i.id === rental.itemId)
+              if (!item) return null
+
+              const itemTotal = rental.quantity * (rental.pricePerUnit || 0)
+              console.log('Precio calculado para item rentado:', {
+                itemId: rental.itemId,
+                quantity: rental.quantity,
+                pricePerUnit: rental.pricePerUnit,
+                itemTotal
+              })
+
+              return (
+                <div key={rental.itemId} className="flex justify-between text-sm">
+                  <span className="text-gray-600">
+                    {item.name} x{rental.quantity}
+                  </span>
+                  <span className="font-medium text-gray-900">
+                    {itemTotal.toFixed(2)}€
+                  </span>
+                </div>
+              )
+            })}
+            <div className="pt-2 border-t border-gray-200">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-900">
+                  Total Rentals
+                </span>
+                <span className="font-medium text-gray-900">
+                  {rentalsPriceTotal.toFixed(2)}€
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

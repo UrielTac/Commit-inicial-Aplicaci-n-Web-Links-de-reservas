@@ -54,7 +54,10 @@ const generateTimeSlots = (
   // Crear un mapa de slots ocupados por cancha
   const bookedSlotsByCourtId = new Map<string, Set<number>>()
   
-  scheduleData.forEach(booking => {
+  // Filtrar las reservas canceladas
+  const activeBookings = scheduleData.filter(booking => booking.payment_status !== 'cancelled')
+  
+  activeBookings.forEach(booking => {
     if (!bookedSlotsByCourtId.has(booking.court_id)) {
       bookedSlotsByCourtId.set(booking.court_id, new Set())
     }

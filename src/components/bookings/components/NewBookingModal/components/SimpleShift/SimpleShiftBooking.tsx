@@ -1,25 +1,24 @@
-import { motion } from "framer-motion"
-import { ParticipantStep } from "./ParticipantStep"
-import { RentalStep } from "./RentalStep"
-import { PaymentStep } from "./PaymentStep"
-import { ConfirmationStep } from "./ConfirmationStep"
-import { useState, useEffect, useCallback } from "react"
-import { useBranchContext } from "@/contexts/BranchContext"
-import { useCourts } from "@/hooks/useCourts"
-import { useItems } from "@/hooks/useItems"
-import { timeToMinutes } from "@/lib/time-utils"
-import type { BookingStep, TimeSelection } from "../../types"
-import type { PaymentDetails } from "@/types/bookings"
+import { useCallback, useEffect, useMemo } from 'react'
+import { timeToMinutes } from '@/lib/time-utils'
+import { useBranchContext } from '@/contexts/BranchContext'
+import { RentalStep } from './RentalStep'
+import { PaymentStep } from './PaymentStep'
+import { CourtSelector } from './CourtSelector'
+import { TimeSlotSelector } from './TimeSlotSelector'
+import type { TimeSelection } from '@/types/bookings'
+import type { RentalSelection } from '@/types/items'
+import type { PaymentDetails } from '@/types/payments'
 
 interface SimpleShiftBookingProps {
-  currentStep: BookingStep
+  currentStep: 'time' | 'rentals' | 'payment'
   selectedCourts: string[]
-  timeSelection?: TimeSelection
-  onCourtSelect: (courtId: string) => void
-  onTimeSelect: (time: TimeSelection) => void
+  timeSelection: TimeSelection | null
+  onCourtSelect: (courts: string[]) => void
+  onTimeSelect: (time: TimeSelection | null) => void
   onValidationChange: (isValid: boolean) => void
-  onPaymentChange: (details: PaymentDetails) => void
-  onRentalChange: (rentals: any[]) => void
+  onPaymentChange: (payment: PaymentDetails) => void
+  onRentalChange: (rentals: RentalSelection[]) => void
+  rentals?: RentalSelection[]
 }
 
 export function SimpleShiftBooking({
@@ -33,196 +32,142 @@ export function SimpleShiftBooking({
   onRentalChange,
   rentals = []
 }: SimpleShiftBookingProps) {
-  const [isPaymentValid, setIsPaymentValid] = useState(false)
   const { currentBranch } = useBranchContext()
-  const { data: courts = [] } = useCourts({ branchId: currentBranch?.id })
-  const { data: items = [] } = useItems(currentBranch?.id)
-  const [totalAmount, setTotalAmount] = useState(0)
 
-  const calculateTotalAmount = useCallback(() => {
-    if (!timeSelection || !selectedCourts.length) return 0
+  // Calcular la duración en minutos basada en la selección de tiempo
+  const durationInMinutes = useMemo(() => {
+    if (!timeSelection?.startTime || !timeSelection?.endTime) {
+      console.log('Estado de timeSelection:', {
+        timeSelection,
+        hasStartTime: !!timeSelection?.startTime,
+        hasEndTime: !!timeSelection?.endTime,
+        currentStep
+      })
+      return 0
+    }
 
-    // Calcular duración en minutos
     const startMinutes = timeToMinutes(timeSelection.startTime)
     const endMinutes = timeToMinutes(timeSelection.endTime)
-    const duration = endMinutes - startMinutes
+    const calculatedDuration = endMinutes - startMinutes
 
-    // Calcular precio de las canchas
-    const courtPrice = selectedCourts.reduce((total, courtId) => {
-      const court = courts.find(c => c.id === courtId)
-      if (!court?.duration_pricing) return total
+    console.log('Calculando duración para timeSelection:', {
+      startTime: timeSelection.startTime,
+      endTime: timeSelection.endTime,
+      startMinutes,
+      endMinutes,
+      calculatedDuration,
+      currentStep
+    })
 
-      const durationKey = duration.toString()
-      const price = Number(court.duration_pricing[durationKey]) || 0
-      return total + price
-    }, 0)
+    // Asegurarnos que el valor es un número válido y positivo
+    return calculatedDuration > 0 ? calculatedDuration : 0
+  }, [timeSelection, currentStep])
 
-    // Calcular precio de los rentals
-    const rentalPrice = rentals.reduce((total, rental) => {
-      const item = items.find(i => i.id === rental.itemId)
-      if (!item?.duration_pricing) return total
-
-      const durationKey = duration.toString()
-      const price = Number(item.duration_pricing[durationKey]) || 0
-      return total + (price * rental.quantity)
-    }, 0)
-
-    return courtPrice + rentalPrice
-  }, [timeSelection, selectedCourts, courts, rentals, items])
-
-  // Actualizar el total cuando cambian los datos relevantes
+  // Efecto para mantener la consistencia del estado
   useEffect(() => {
-    const newTotal = calculateTotalAmount()
-    setTotalAmount(newTotal)
-  }, [calculateTotalAmount])
-
-  // Validar el paso actual y notificar cambios
-  useEffect(() => {
-    let isValid = false
-    switch (currentStep) {
-      case 'payment':
-        const total = calculateTotalAmount()
-        isValid = total > 0
-        break
-      default:
-        isValid = true
+    if (currentStep === 'rentals' && (!timeSelection || durationInMinutes === 0)) {
+      console.log('Advertencia: Paso de rentals sin selección de tiempo válida', {
+        timeSelection,
+        durationInMinutes,
+        currentStep
+      })
     }
+  }, [timeSelection, durationInMinutes, currentStep])
+
+  // Efecto para actualizar la validación cuando cambian los datos relevantes
+  useEffect(() => {
+    const isValid = selectedCourts.length > 0 && !!timeSelection && durationInMinutes > 0
+
+    console.log('Validando paso:', {
+      step: currentStep,
+      isValid,
+      durationInMinutes,
+      hasTimeSelection: !!timeSelection,
+      selectedCourts: selectedCourts.length
+    })
+
     onValidationChange(isValid)
-  }, [currentStep, calculateTotalAmount, onValidationChange])
+  }, [currentStep, selectedCourts, timeSelection, durationInMinutes, onValidationChange])
 
+  // Renderizar el paso actual
   const renderStep = () => {
+    console.log('Renderizando paso:', {
+      currentStep,
+      durationInMinutes,
+      hasTimeSelection: !!timeSelection,
+      startTime: timeSelection?.startTime,
+      endTime: timeSelection?.endTime
+    })
+
     switch (currentStep) {
-      case 'date':
-        return (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-700">
-                Fecha de la Reserva
-              </h3>
-              <CustomCalendar
-                selected={selectedDate}
-                onSelect={(date) => {
-                  if (date) {
-                    onDateSelect(date)
-                  }
-                }}
-                className="rounded-md border shadow-sm"
-              />
-            </div>
-
-            {selectedDate ? (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gray-50 rounded-lg border border-gray-100"
-              >
-                <div className="p-4">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium text-gray-900 leading-tight">
-                      Fecha seleccionada
-                    </p>
-                    <p className="text-sm text-gray-600 leading-tight">
-                      {format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { 
-                        locale: es 
-                      })}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-[13px] text-gray-400 text-center"
-              >
-                Selecciona una fecha para continuar
-              </motion.p>
-            )}
-          </div>
-        )
-
       case 'time':
         return (
           <div className="space-y-6">
-            {/* Selector de Canchas */}
             <CourtSelector
               selectedCourts={selectedCourts}
-              onCourtToggle={(courtId) => {
-                onCourtSelect(
-                  selectedCourts.includes(courtId)
-                    ? selectedCourts.filter(id => id !== courtId)
-                    : [...selectedCourts, courtId]
-                )
+              onCourtToggle={(courtId: string) => {
+                const newSelection = selectedCourts.includes(courtId)
+                  ? selectedCourts.filter(id => id !== courtId)
+                  : [...selectedCourts, courtId]
+                onCourtSelect(newSelection)
               }}
             />
-
-            {/* Selector de Horario */}
-            {selectedCourts.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
-                <h3 className="text-sm font-medium text-gray-700">
-                  Horario Disponible
-                </h3>
-                <TimeSlotSelector
-                  selectedCourts={selectedCourts}
-                  selectedDate={selectedDate || new Date()}
-                  onTimeSelect={onTimeSelect}
-                />
-              </motion.div>
-            )}
+            <TimeSlotSelector
+              selectedCourts={selectedCourts}
+              timeSelection={timeSelection}
+              onTimeSelect={onTimeSelect}
+            />
           </div>
         )
 
-      case 'participants':
-        return (
-          <ParticipantStep
-            participants={participants}
-            onParticipantAdd={onParticipantAdd}
-            onParticipantRemove={onParticipantRemove}
-          />
-        )
-
       case 'rentals':
+        if (!timeSelection || durationInMinutes <= 0) {
+          console.log('No se puede renderizar RentalStep:', {
+            hasTimeSelection: !!timeSelection,
+            durationInMinutes
+          })
+          return null
+        }
+
+        console.log('Renderizando RentalStep:', {
+          durationInMinutes,
+          startTime: timeSelection.startTime,
+          endTime: timeSelection.endTime
+        })
+
         return (
           <RentalStep
             rentals={rentals}
             onRentalChange={onRentalChange}
-            startTime={timeSelection?.startTime}
-            endTime={timeSelection?.endTime}
-            duration={timeSelection?.duration}
+            startTime={timeSelection.startTime}
+            endTime={timeSelection.endTime}
+            durationInMinutes={durationInMinutes}
           />
         )
 
       case 'payment':
+        if (!timeSelection || durationInMinutes <= 0) {
+          console.log('No se puede renderizar PaymentStep:', {
+            hasTimeSelection: !!timeSelection,
+            durationInMinutes
+          })
+          return null
+        }
+
+        console.log('Renderizando PaymentStep:', {
+          durationInMinutes,
+          startTime: timeSelection.startTime,
+          endTime: timeSelection.endTime
+        })
+
         return (
           <PaymentStep
-            totalAmount={totalAmount}
-            selectedRentals={rentals || []}
-            selectedCourts={selectedCourts}
-            startTime={timeSelection?.startTime || '00:00'}
-            endTime={timeSelection?.endTime || '00:00'}
-            onPaymentChange={(details) => {
-              onPaymentChange(details)
-              // Actualizar el total cuando cambia el pago
-              setTotalAmount(details.totalAmount)
-            }}
-            onNext={() => onValidationChange(true)}
-            onBack={() => onValidationChange(false)}
-          />
-        )
-
-      case 'confirmation':
-        return (
-          <ConfirmationStep
-            selectedDate={selectedDate}
-            selectedCourts={selectedCourts}
-            courts={courts}
-            totalAmount={totalAmount} // Usar el mismo total que en PaymentStep
+            court={selectedCourts[0]}
             rentals={rentals}
-            sampleRentalItems={sampleRentalItems}
+            startTime={timeSelection.startTime}
+            endTime={timeSelection.endTime}
+            durationInMinutes={durationInMinutes}
+            onPaymentChange={onPaymentChange}
           />
         )
 
@@ -232,13 +177,8 @@ export function SimpleShiftBooking({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      className="p-6"
-    >
+    <div className="space-y-6">
       {renderStep()}
-    </motion.div>
+    </div>
   )
 } 

@@ -27,5 +27,8 @@ export interface ItemWithCalculatedPrice extends Item {
 export interface RentalSelection {
   itemId: string
   quantity: number
+  pricePerUnit: number
+  price: number
   duration: number
+  totalPrice: number
 } 

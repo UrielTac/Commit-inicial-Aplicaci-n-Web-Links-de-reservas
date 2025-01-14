@@ -223,6 +223,9 @@ export function SimpleShiftBooking({
           <RentalStep
             rentals={rentals}
             onRentalChange={handleRentalChange}
+            startTime={timeSelection?.startTime || '00:00'}
+            endTime={timeSelection?.endTime || '00:00'}
+            durationInMinutes={timeSelection ? timeToMinutes(timeSelection.endTime) - timeToMinutes(timeSelection.startTime) : 0}
           />
         )
       case 'payment':

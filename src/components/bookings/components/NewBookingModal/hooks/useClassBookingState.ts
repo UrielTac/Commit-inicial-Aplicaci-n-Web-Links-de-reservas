@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { DEFAULT_CLASS_DETAILS, DEFAULT_AVAILABILITY } from '../constants'
 import type { 
   ClassBookingState, 
@@ -14,57 +14,81 @@ export function useClassBookingState(): ClassBookingState {
   const [availability, setAvailability] = useState<ClassAvailability>(DEFAULT_AVAILABILITY)
   const [sessions, setSessions] = useState<ClassSession[]>([])
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
+  const [currentStep, setCurrentStep] = useState<BookingStep>('class-details')
 
-  const validateClassDetails = useCallback(() => {
-    const errors: ValidationErrors = {}
-    if (!classDetails.name.trim()) {
-      errors.name = 'El nombre es requerido'
+  // Memoizar las funciones de validación pura (sin efectos secundarios)
+  const validators = useMemo(() => ({
+    classDetails: (details: ClassDetails): ValidationErrors => {
+      const errors: ValidationErrors = {}
+      if (!details.name.trim()) {
+        errors.name = 'El nombre es requerido'
+      }
+      if (!details.description.trim()) {
+        errors.description = 'La descripción es requerida'
+      }
+      if (!details.duration || details.duration < 15) {
+        errors.duration = 'La duración debe ser al menos 15 minutos'
+      }
+      return errors
+    },
+    availability: (avail: ClassAvailability): ValidationErrors => {
+      const errors: ValidationErrors = {}
+      if (!avail.selectedCourts.length) {
+        errors.courts = 'Selecciona al menos una cancha'
+      }
+      if (!avail.maxParticipants || avail.maxParticipants < 1) {
+        errors.maxParticipants = 'El número de participantes debe ser mayor a 0'
+      }
+      return errors
+    },
+    sessions: (sessionList: ClassSession[]): ValidationErrors => {
+      const errors: ValidationErrors = {}
+      if (sessionList.length === 0) {
+        errors.sessions = 'Debe agregar al menos una sesión'
+      } else if (sessionList.some(session => !session.date)) {
+        errors.sessions = 'Todas las sesiones deben tener una fecha asignada'
+      }
+      return errors
     }
-    if (!classDetails.description.trim()) {
-      errors.description = 'La descripción es requerida'
-    }
-    if (!classDetails.duration || classDetails.duration < 15) {
-      errors.duration = 'La duración debe ser al menos 15 minutos'
-    }
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }, [classDetails])
+  }), [])
 
-  const validateAvailability = useCallback(() => {
-    const errors: ValidationErrors = {}
-    if (!availability.selectedCourts.length) {
-      errors.courts = 'Selecciona al menos una cancha'
+  // Efecto para manejar validaciones cuando cambian los datos
+  useEffect(() => {
+    let newErrors: ValidationErrors = {}
+    
+    switch (currentStep) {
+      case 'class-details':
+        newErrors = validators.classDetails(classDetails)
+        break
+      case 'class-availability':
+        newErrors = validators.availability(availability)
+        break
+      case 'sessions':
+        newErrors = validators.sessions(sessions)
+        break
     }
-    if (!availability.maxParticipants || availability.maxParticipants < 1) {
-      errors.maxParticipants = 'El número de participantes debe ser mayor a 0'
-    }
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }, [availability])
 
-  const validateSessions = useCallback(() => {
-    const errors: ValidationErrors = {}
-    if (sessions.length === 0) {
-      errors.sessions = 'Debe agregar al menos una sesión'
-    } else if (sessions.some(session => !session.date)) {
-      errors.sessions = 'Todas las sesiones deben tener una fecha asignada'
-    }
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }, [sessions])
+    setValidationErrors(newErrors)
+  }, [currentStep, classDetails, availability, sessions, validators])
 
   const validateStep = useCallback((step: BookingStep): boolean => {
+    setCurrentStep(step) // Actualizar el paso actual para la validación
+    
+    let errors: ValidationErrors = {}
     switch (step) {
       case 'class-details':
-        return validateClassDetails()
+        errors = validators.classDetails(classDetails)
+        break
       case 'class-availability':
-        return validateAvailability()
+        errors = validators.availability(availability)
+        break
       case 'sessions':
-        return validateSessions()
-      default:
-        return true
+        errors = validators.sessions(sessions)
+        break
     }
-  }, [validateClassDetails, validateAvailability, validateSessions])
+    
+    return Object.keys(errors).length === 0
+  }, [validators, classDetails, availability, sessions])
 
   const handleAddSession = useCallback(() => {
     setSessions(prev => [
@@ -97,6 +121,7 @@ export function useClassBookingState(): ClassBookingState {
     setAvailability(DEFAULT_AVAILABILITY)
     setSessions([])
     setValidationErrors({})
+    setCurrentStep('class-details')
   }, [])
 
   return {
