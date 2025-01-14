@@ -4,20 +4,28 @@ import * as React from "react"
 import { useState, useEffect, useRef } from "react"
 import { IconChevronDown, IconCheck } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
+import { type ItemType } from '@/types/items'
 
-export interface SingleSelectProps {
-  value: string
-  onChange: (value: string) => void
-  options: { id: string; name: string }[]
-  placeholder?: string
+interface Option<T = string> {
+  id: T
+  name: string
 }
 
-export function SingleSelect({ 
-  value, 
-  onChange, 
+interface SingleSelectProps<T = string> {
+  value: T
+  onChange: (value: T) => void
+  options: readonly Option<T>[]
+  placeholder?: string
+  className?: string
+}
+
+export function SingleSelect<T extends string>({ 
+  value,
+  onChange,
   options,
-  placeholder = "Seleccionar..."
-}: SingleSelectProps) {
+  placeholder = "Seleccionar...",
+  className
+}: SingleSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -75,7 +83,7 @@ export function SingleSelect({
           <div className="p-1">
             {options.map((option) => (
               <button
-                key={option.id}
+                key={String(option.id)}
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()

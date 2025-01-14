@@ -38,6 +38,7 @@ interface ClassScheduleProps {
   config?: ClassScheduleConfig
   onChange: (config: ClassScheduleConfig) => void
   onValidationChange: (isValid: boolean) => void
+  selectedBranchIds?: string[]
 }
 
 export function ClassSchedule({
@@ -49,9 +50,10 @@ export function ClassSchedule({
     timeSlots: []
   },
   onChange,
-  onValidationChange
+  onValidationChange,
+  selectedBranchIds
 }: ClassScheduleProps) {
-  const { courtOptions, isLoading, error } = useGroupedCourts()
+  const { courtOptions, isLoading, error } = useGroupedCourts({ selectedBranchIds })
   const [newInstructor, setNewInstructor] = useState<string>("")
 
   useEffect(() => {
@@ -287,25 +289,33 @@ export function ClassSchedule({
                     <label className="text-sm font-medium text-gray-700">
                       Cancha
                     </label>
-                    {isLoading ? (
-                      <div className="w-full h-10 bg-gray-100 animate-pulse rounded-lg" />
-                    ) : error ? (
-                      <div className="w-full p-3 text-sm text-red-600 bg-red-50 rounded-lg">
-                        Error al cargar las canchas
-                      </div>
-                    ) : (
-                      <GroupedMultiSelect
-                        value={slot.courtIds || []}
-                        onChange={(courts) => {
-                          const updatedSlots = config.timeSlots.map(s =>
-                            s.id === slot.id ? { ...s, courtIds: courts } : s
-                          )
-                          onChange({ ...config, timeSlots: updatedSlots })
-                        }}
-                        options={courtOptions}
-                        placeholder="Seleccionar canchas"
-                      />
-                    )}
+                    <GroupedMultiSelect
+                      value={slot.courtIds || []}
+                      onChange={(courts) => {
+                        console.log('ClassSchedule - Actualizando canchas:', {
+                          slotId: slot.id,
+                          prevCourts: slot.courtIds,
+                          newCourts: courts
+                        })
+                        
+                        const updatedSlots = config.timeSlots.map(s =>
+                          s.id === slot.id 
+                            ? { ...s, courtIds: courts.length > 0 ? courts : undefined }
+                            : s
+                        )
+                        
+                        console.log('ClassSchedule - Slots actualizados:', updatedSlots)
+                        
+                        onChange({
+                          ...config,
+                          timeSlots: updatedSlots
+                        })
+                      }}
+                      options={courtOptions}
+                      placeholder="Seleccionar canchas"
+                      isLoading={isLoading}
+                      error={error}
+                    />
                   </div>
 
                   {/* Capacidad y Precio */}

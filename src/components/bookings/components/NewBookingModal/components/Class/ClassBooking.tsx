@@ -64,6 +64,7 @@ export function ClassBooking({
             config={scheduleConfig}
             onChange={onScheduleConfigChange}
             onValidationChange={onValidationChange}
+            selectedBranchIds={classDetails?.branchId}
           />
         )
       
