@@ -13,8 +13,18 @@ export default function BookingsPage() {
     <div className="flex flex-col gap-4">
       <Tabs defaultValue="bookings" className="w-full">
         <TabsList>
-          <TabsTrigger value="bookings">Reservaciones</TabsTrigger>
-          <TabsTrigger value="courts">Canchas</TabsTrigger>
+          <TabsTrigger 
+            value="bookings"
+            className="data-[state=inactive]:text-gray-500"
+          >
+            Reservaciones
+          </TabsTrigger>
+          <TabsTrigger 
+            value="courts"
+            className="data-[state=inactive]:text-gray-500"
+          >
+            Canchas
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="bookings">

@@ -22,20 +22,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { branchService } from '@/services/branchService'
+import { toast } from "@/components/ui/use-toast"
+import { supabase } from "@/lib/supabase"
 
 interface Branch {
   id: string
   name: string
-  courts: number
-  schedule: {
+  courts?: number
+  schedule?: {
     open: string
     close: string
   }
   data?: {
+    id?: string
     name: string
     address: string
     phone: string
-    email: string
+    manager: string
+    isActive: boolean
+    opening_hours: Record<string, any>
     courts: any[]
   }
 }
@@ -48,38 +54,248 @@ interface SucursalSelectionProps {
 export function SucursalSelection({ onNext, onConfigureBranch }: SucursalSelectionProps) {
   const { completeAndAdvance, branches, setBranches, setCurrentBranchId } = useOnboarding()
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  const hasConfiguredBranch = branches.some(branch => branch.data !== undefined)
+  // Solo mostrar sedes que han sido configuradas
+  const configuredBranches = branches.filter(branch => branch.data !== undefined)
+  const hasConfiguredBranch = configuredBranches.length > 0
 
   const handleAddBranch = () => {
-    if (branches.length < 5) {
-      const newBranch = {
-        id: crypto.randomUUID(),
-        name: `Sede ${branches.length + 1}`,
-        courts: 2,
-        schedule: {
-          open: '08:00',
-          close: '21:00'
-        }
-      }
-      setBranches([...branches, newBranch])
-    }
+    // Ir directamente a configurar una nueva sede
+    setCurrentBranchId(null)
+    onConfigureBranch()
   }
 
   const handleDeleteBranch = (branch: Branch) => {
     setBranchToDelete(branch)
   }
 
-  const confirmDelete = () => {
-    if (branchToDelete) {
+  const confirmDelete = async () => {
+    if (!branchToDelete) return
+
+    try {
+      setIsDeleting(true)
+      console.log('📍 Iniciando eliminación de sede:', branchToDelete)
+
+      // Si la sede tiene un ID en Supabase, la eliminamos de allí primero
+      if (branchToDelete.id) {
+        const userId = process.env.NEXT_PUBLIC_DEFAULT_USER_ID
+        if (!userId) {
+          throw new Error('ID de usuario no encontrado')
+        }
+
+        console.log('📍 Eliminando sede con ID:', branchToDelete.id)
+
+        // 1. Eliminar primero las canchas asociadas
+        const { error: deleteCourtError } = await supabase
+          .from('courts')
+          .delete()
+          .eq('branch_id', branchToDelete.id)
+
+        if (deleteCourtError) {
+          console.error('❌ Error al eliminar las canchas:', deleteCourtError)
+          throw new Error('Error al eliminar las canchas asociadas')
+        }
+
+        console.log('✅ Canchas eliminadas correctamente')
+
+        // 2. Ahora eliminamos la sede
+        const { error: deleteBranchError } = await supabase
+          .from('sedes')
+          .delete()
+          .eq('id', branchToDelete.id)
+
+        if (deleteBranchError) {
+          console.error('❌ Error al eliminar la sede:', deleteBranchError)
+          throw new Error('Error al eliminar la sede')
+        }
+
+        console.log('✅ Sede eliminada correctamente')
+      }
+
+      // Actualizamos el estado local
       setBranches(branches.filter(b => b.id !== branchToDelete.id))
       setBranchToDelete(null)
+
+      // Solo mostrar el toast en pantallas medianas y grandes
+      if (window.innerWidth >= 768) {
+        toast({
+          title: "Sede eliminada",
+          description: "La sede y sus canchas se han eliminado correctamente",
+        })
+      }
+    } catch (error: any) {
+      console.error('❌ Error al eliminar sede:', error)
+      // Los mensajes de error sí los mostramos en todas las pantallas
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar la sede. Por favor, inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
-  const handleConfigureBranch = (branchId: string) => {
-    setCurrentBranchId(branchId)
-    onConfigureBranch()
+  const handleConfigureBranch = async (branchId: string) => {
+    try {
+      const branch = branches.find(b => b.id === branchId)
+      if (!branch) {
+        throw new Error('No se encontró la sucursal')
+      }
+
+      // Cargar datos de la sede desde Supabase
+      console.log('📍 Cargando datos de la sede:', branchId)
+      const { data: branchData, error: branchError } = await branchService.getBranchById(branchId)
+      
+      if (branchError) {
+        console.error('❌ Error al cargar la sede:', branchError)
+        throw new Error(branchError.message || 'Error al cargar los datos de la sede')
+      }
+
+      if (!branchData) {
+        throw new Error('No se encontraron los datos de la sede')
+      }
+
+      // Cargar las canchas de la sede
+      console.log('📍 Cargando canchas de la sede:', branchId)
+      const { data: courtsData, error: courtsError } = await supabase
+        .from('courts')
+        .select('*')
+        .eq('branch_id', branchId)
+
+      if (courtsError) {
+        console.error('❌ Error al cargar las canchas:', courtsError)
+        throw new Error(courtsError.message || 'Error al cargar las canchas')
+      }
+
+      // Transformar los datos de las canchas al formato del formulario
+      const formattedCourts = (courtsData || []).map(court => {
+        // Convertir el deporte a array
+        const sports = [court.sport]
+
+        // Mapear el tipo de pista al formato del formulario
+        const typeMap: Record<string, string> = {
+          'indoor': 'interior',
+          'outdoor': 'exterior',
+          'covered': 'cubierta'
+        }
+
+        // Mapear las características basadas en surface y features
+        const characteristics = []
+        const surfaceMap: Record<string, string> = {
+          'crystal': 'cristal-estandar',
+          'panoramic': 'cristal-panoramico',
+          'concrete': 'muro-hormigon',
+          'synthetic': 'cesped-sintetico',
+          'clay': 'tierra-batida',
+          'rubber': 'goma-profesional'
+        }
+        if (surfaceMap[court.surface]) {
+          characteristics.push(surfaceMap[court.surface])
+        }
+        if (Array.isArray(court.features)) {
+          const featureMap: Record<string, string> = {
+            'wall-glass': 'cristal-estandar',
+            'wall-panoramic': 'cristal-panoramico',
+            'wall-concrete': 'muro-hormigon',
+            'floor-synthetic': 'cesped-sintetico',
+            'floor-clay': 'tierra-batida',
+            'floor-concrete': 'hormigon-pulido',
+            'floor-rubber': 'goma-profesional'
+          }
+          court.features.forEach(feature => {
+            if (featureMap[feature] && !characteristics.includes(featureMap[feature])) {
+              characteristics.push(featureMap[feature])
+            }
+          })
+        }
+
+        // Preparar los precios y rangos de tiempo
+        const prices = court.available_durations.map(duration => {
+          const price = {
+            duration: duration.toString(),
+            price: (court.duration_pricing?.[duration] || 0).toString(),
+            timeRanges: []
+          }
+
+          // Agregar rangos de tiempo si existen
+          Object.entries(court.custom_pricing || {}).forEach(([day, data]) => {
+            if (data.isSelected && Array.isArray(data.timeRanges)) {
+              data.timeRanges.forEach(range => {
+                price.timeRanges.push({
+                  day,
+                  start: range.startTime,
+                  end: range.endTime,
+                  percentage: range.percentage.toString()
+                })
+              })
+            }
+          })
+
+          return price
+        })
+
+        return {
+          id: court.id,
+          name: court.name,
+          sports,
+          type: typeMap[court.court_type] || 'interior',
+          characteristics,
+          durations: court.available_durations.map(d => d.toString()),
+          prices
+        }
+      })
+
+      console.log('✅ Datos de la sede y canchas cargados:', { sede: branchData, canchas: formattedCourts })
+      setCurrentBranchId(branchId)
+      
+      // Transformar los datos al formato esperado por el formulario
+      const formattedData = {
+        id: branchData.id,
+        name: branchData.name || '',
+        address: branchData.address || '',
+        phone: branchData.phone || '',
+        manager: branchData.manager_id || '',
+        isActive: branchData.is_active ?? true,
+        opening_hours: branchData.opening_hours || {},
+        courts: formattedCourts
+      }
+        
+        // Actualizar los datos en el contexto
+      console.log('📍 Actualizando datos en el contexto:', formattedData)
+      
+      setBranches(prev => {
+        const updatedBranches = prev.map(b => 
+          b.id === branchId 
+            ? { 
+                ...b, 
+                data: {
+                  ...formattedData,
+                  courts: formattedCourts
+                }
+              }
+            : b
+        )
+        console.log('📍 Estado actualizado de las sedes:', updatedBranches)
+        return updatedBranches
+      })
+      
+      // También actualizamos el currentBranchId
+      setCurrentBranchId(branchId)
+      
+      // Llamar a onConfigureBranch después de actualizar el estado
+      setTimeout(() => {
+      onConfigureBranch()
+      }, 0)
+    } catch (error: any) {
+      console.error('❌ Error al configurar la sede:', error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudieron cargar los datos de la sede",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleContinue = () => {
@@ -122,7 +338,7 @@ export function SucursalSelection({ onNext, onConfigureBranch }: SucursalSelecti
       {/* Contenedor de sucursales */}
       <div className="space-y-4">
         <AnimatePresence>
-          {branches.map((branch, index) => (
+          {configuredBranches.map((branch, index) => (
             <motion.div
               key={branch.id}
               initial={{ opacity: 0, y: 20 }}
@@ -137,7 +353,7 @@ export function SucursalSelection({ onNext, onConfigureBranch }: SucursalSelecti
                       {branch.data?.name || branch.name}
                     </h3>
                     <div className="space-y-1">
-                      {branch.data ? (
+                      {branch.data && (
                         <>
                           <p className="text-xs text-muted-foreground">
                             {branch.data.courts.length} {branch.data.courts.length === 1 ? 'pista' : 'pistas'} configuradas
@@ -146,17 +362,9 @@ export function SucursalSelection({ onNext, onConfigureBranch }: SucursalSelecti
                             {branch.data.address}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {branch.data.phone} · {branch.data.email}
-                          </p>
-                          <p className="text-xs text-green-600 flex items-center gap-1">
-                            <Check className="h-3 w-3" />
-                            Configuración guardada
+                            {branch.data.phone}
                           </p>
                         </>
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic">
-                          Sede sin configurar
-                        </p>
                       )}
                     </div>
                   </div>
@@ -168,9 +376,9 @@ export function SucursalSelection({ onNext, onConfigureBranch }: SucursalSelecti
                       onClick={() => handleConfigureBranch(branch.id)}
                     >
                       <PenLine className="h-4 w-4" />
-                      {branch.data ? 'Editar' : 'Configurar'}
+                      Editar
                     </Button>
-                    {branches.length > 1 && (
+                    {configuredBranches.length > 1 && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -188,7 +396,7 @@ export function SucursalSelection({ onNext, onConfigureBranch }: SucursalSelecti
         </AnimatePresence>
 
         {/* Botón de agregar sede */}
-        {branches.length < 5 && (
+        {configuredBranches.length < 5 && (
           <motion.div
             initial={false}
             animate={{ opacity: 1 }}
@@ -208,15 +416,6 @@ export function SucursalSelection({ onNext, onConfigureBranch }: SucursalSelecti
 
       {/* Botón de continuar y mensaje de validación */}
       <div className="pt-4">
-        {!hasConfiguredBranch && (
-          <motion.p
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-sm text-red-500 mb-2"
-          >
-            * Debes configurar al menos una sede antes de continuar
-          </motion.p>
-        )}
         <div className="flex justify-end">
           <Button 
             onClick={handleContinue} 
@@ -239,12 +438,18 @@ export function SucursalSelection({ onNext, onConfigureBranch }: SucursalSelecti
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setBranchToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel 
+              onClick={() => setBranchToDelete(null)}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={isDeleting}
             >
-              Eliminar
+              {isDeleting ? 'Eliminando...' : 'Eliminar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

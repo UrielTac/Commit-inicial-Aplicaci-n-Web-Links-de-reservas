@@ -22,14 +22,16 @@ export default function PricingPage() {
           
           <TooltipProvider delayDuration={0}>
             <Tooltip>
-              <TooltipTrigger className="opacity-60">
-                <TabsTrigger 
-                  value="subscriptions"
-                  className="data-[state=inactive]:text-gray-500 pointer-events-none"
-                  disabled
-                >
-                  Membresías
-                </TabsTrigger>
+              <TooltipTrigger asChild>
+                <span className="opacity-60">
+                  <TabsTrigger 
+                    value="subscriptions"
+                    className="data-[state=inactive]:text-gray-500 pointer-events-none"
+                    disabled
+                  >
+                    Membresías
+                  </TabsTrigger>
+                </span>
               </TooltipTrigger>
               <TooltipContent 
                 className="bg-black text-white text-xs px-2 py-1 rounded"
@@ -42,14 +44,16 @@ export default function PricingPage() {
           
           <TooltipProvider delayDuration={0}>
             <Tooltip>
-              <TooltipTrigger className="opacity-60">
-                <TabsTrigger 
-                  value="packages"
-                  className="data-[state=inactive]:text-gray-500 pointer-events-none"
-                  disabled
-                >
-                  Paquetes
-                </TabsTrigger>
+              <TooltipTrigger asChild>
+                <span className="opacity-60">
+                  <TabsTrigger 
+                    value="packages"
+                    className="data-[state=inactive]:text-gray-500 pointer-events-none"
+                    disabled
+                  >
+                    Paquetes
+                  </TabsTrigger>
+                </span>
               </TooltipTrigger>
               <TooltipContent 
                 className="bg-black text-white text-xs px-2 py-1 rounded"

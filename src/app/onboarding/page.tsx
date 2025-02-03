@@ -7,28 +7,65 @@ import { StepsList } from './components/StepsList'
 import { FAQDialog } from './components/FAQ'
 import { OnboardingDialog } from './components/Dialogs/OnboardingDialog'
 import { Button } from '@/components/ui/button'
-import { HelpCircle } from 'lucide-react'
+import { HelpCircle, Check, Building2, MapPin, CreditCard, Package } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useOnboarding } from './context/OnboardingContext'
+import { motion } from 'framer-motion'
+
+function MobileHeader() {
+  const { currentStep, steps, completedSteps } = useOnboarding()
+  
+  const isComplete = completedSteps.every(step => step === true)
+  
+  if (isComplete) {
+    return null
+  }
+  
+  return (
+    <div className="px-4 py-8 bg-white md:hidden">
+      <div className="flex flex-col items-center gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ 
+            type: "spring",
+            stiffness: 200,
+            damping: 15
+          }}
+          className="text-xl font-medium"
+        >
+        </motion.div>
+
+        <div className="space-y-1 text-center">
+          <p className="text-sm font-medium text-gray-500">
+            Paso {currentStep + 1} de {steps.length}
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight">
+            {steps[currentStep]}
+          </h2>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function OnboardingPage() {
   const [showFAQ, setShowFAQ] = useState(false)
 
   return (
     <OnboardingProvider>
-      <div className="flex min-h-screen bg-gray-50">
-        {/* Barra lateral */}
-        <div className="fixed top-0 bottom-0 w-96 bg-gray-50 p-8 flex flex-col border-r border-gray-200">
+      <div className="min-h-screen bg-white">
+        {/* Barra lateral - Solo visible en desktop */}
+        <div className="fixed top-0 bottom-0 w-96 bg-gray-50 p-8 border-r border-gray-200 hidden md:flex md:flex-col">
           <div className="mb-12">
             <h2 className="text-gray-900 text-xl font-semibold mb-2">Configuración Inicial</h2>
             <p className="text-gray-500 text-sm">Complete los siguientes pasos para configurar su cuenta.</p>
           </div>
           
-          {/* Lista de pasos en la barra lateral */}
           <nav className="flex-1">
             <StepsList />
           </nav>
 
-          {/* Footer de la barra lateral */}
           <div className="mt-auto pt-6">
             <Button 
               variant="ghost" 
@@ -46,10 +83,13 @@ export default function OnboardingPage() {
         </div>
 
         {/* Contenido principal */}
-        <div className="flex-1 flex items-center justify-center pl-96 py-8 bg-white">
-          <div className="w-full max-w-4xl px-8">
-            <OnboardingSteps />
-          </div>
+        <div className="flex flex-col min-h-screen md:pl-96">
+          <MobileHeader />
+          <main className="flex-1 flex items-center justify-center bg-white">
+            <div className="w-full">
+              <OnboardingSteps />
+            </div>
+          </main>
         </div>
 
         <FAQDialog 

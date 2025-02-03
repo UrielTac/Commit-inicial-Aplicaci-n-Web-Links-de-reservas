@@ -14,13 +14,53 @@ import {
 } from "@/components/ui/select-3"
 import { Input } from "@/components/ui/input"
 import { IconChevronDown, IconTrash, IconPlus } from "@tabler/icons-react"
-import { type Item } from '@/types/items'
+import { type Item, type ItemType } from '@/types/items'
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SingleSelect } from "@/components/ui/single-select"
+import { toast } from "react-hot-toast"
 
-// Definimos las opciones de tipo de artículo
-const itemTypeOptions = [
+// Actualizamos la interfaz ItemFormData para incluir todos los campos necesarios
+interface ItemFormData {
+  name: string
+  type: ItemType
+  duration_pricing: Record<string, number>
+  prices: PriceEntry[]
+  default_duration: number
+  stock: number
+  requires_deposit: boolean
+  deposit_amount: number | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  empresa_id: string
+  sede_id: string | null
+}
+
+// Actualizamos el defaultFormData
+const defaultFormData: ItemFormData = {
+  name: '',
+  type: 'equipment',
+  duration_pricing: {},
+  prices: [{ duration: 60, price: 0 }],
+  default_duration: 60,
+  stock: 0,
+  requires_deposit: false,
+  deposit_amount: null,
+  is_active: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  empresa_id: '',
+  sede_id: null
+}
+
+// Actualizamos el tipo de las opciones
+interface ItemTypeOption {
+  readonly id: ItemType
+  readonly name: string
+}
+
+const itemTypeOptions: readonly ItemTypeOption[] = [
   { id: 'equipment', name: 'Equipamiento' },
   { id: 'accessory', name: 'Accesorio' },
   { id: 'consumable', name: 'Consumible' }
@@ -33,11 +73,6 @@ type Duration = typeof durationOptions[number]
 // Actualizamos la interfaz Item para manejar precios por duración
 interface PricingByDuration {
   [duration: number]: number // duración en minutos: precio
-}
-
-// Extendemos la interfaz Item en types/items.ts
-interface ItemFormData extends Omit<Item, 'id' | 'pricing'> {
-  prices: PriceEntry[]
 }
 
 interface NewItemModalProps {
@@ -64,18 +99,6 @@ export function NewItemModal({
 }: NewItemModalProps) {
   const [mounted, setMounted] = React.useState(false)
 
-  // Estado inicial por defecto
-  const defaultFormData: ItemFormData = {
-    name: '',
-    type: 'equipment',
-    prices: [{ duration: 60, price: 0 }],
-    stock: 0,
-    requiresDeposit: false,
-    depositAmount: 0,
-    isActive: true,
-    defaultDuration: 60
-  }
-
   const [formData, setFormData] = useState<ItemFormData>(defaultFormData)
 
   // Efecto para manejar el montaje
@@ -88,26 +111,38 @@ export function NewItemModal({
   useEffect(() => {
     if (isOpen) {
       if (editingItem && mode === 'edit') {
-        // Convertir el pricing object a array de prices para edición
-        const prices = Object.entries(editingItem.pricing).map(([duration, price]) => ({
+        console.log('Cargando item para edición:', editingItem)
+        
+        // Asegurarnos de que duration_pricing existe y es un objeto
+        const duration_pricing = editingItem.duration_pricing || {}
+        console.log('Duration pricing:', duration_pricing)
+        
+        // Convertir el duration_pricing object a array de prices
+        const prices = Object.entries(duration_pricing).map(([duration, price]) => ({
           duration: Number(duration),
-          price
-        }))
+          price: Number(price)
+        })).filter(price => !isNaN(price.duration) && !isNaN(price.price))
+        
+        console.log('Precios transformados:', prices)
         
         setFormData({
-          name: editingItem.name,
-          type: editingItem.type,
-          prices,
-          stock: editingItem.stock,
-          requiresDeposit: editingItem.requiresDeposit,
-          depositAmount: editingItem.depositAmount || 0,
-          isActive: editingItem.isActive,
-          defaultDuration: editingItem.defaultDuration
+          name: editingItem.name || '',
+          type: editingItem.type || 'equipment',
+          duration_pricing,
+          prices: prices.length > 0 ? prices : [{ duration: 60, price: 0 }],
+          default_duration: editingItem.default_duration || 60,
+          stock: editingItem.stock || 0,
+          requires_deposit: editingItem.requires_deposit || false,
+          deposit_amount: editingItem.deposit_amount || null,
+          is_active: editingItem.is_active ?? true,
+          created_at: editingItem.created_at || new Date().toISOString(),
+          updated_at: editingItem.updated_at || new Date().toISOString(),
+          empresa_id: editingItem.empresa_id || '',
+          sede_id: editingItem.sede_id
         })
+      } else {
+        setFormData(defaultFormData)
       }
-    } else {
-      // Reiniciar el formulario cuando se cierra el modal
-      setFormData(defaultFormData)
     }
   }, [isOpen, editingItem, mode])
 
@@ -126,28 +161,56 @@ export function NewItemModal({
   }
 
   const handlePriceChange = (index: number, field: keyof PriceEntry, value: number) => {
-    setFormData(prev => ({
-      ...prev,
-      prices: prev.prices.map((price, i) => 
+    setFormData(prev => {
+      const newPrices = prev.prices.map((price, i) => 
         i === index ? { ...price, [field]: value } : price
       )
-    }))
+      
+      // Actualizar también duration_pricing
+      const duration_pricing: Record<string, number> = {}
+      newPrices.forEach(({ duration, price }) => {
+        duration_pricing[duration] = price
+      })
+
+      return {
+        ...prev,
+        prices: newPrices,
+        duration_pricing
+      }
+    })
   }
 
   const handleSave = () => {
-    if (!formData.name.trim()) return
+    if (!formData.name?.trim()) {
+      toast.error('El nombre es requerido')
+      return
+    }
 
-    // Convertir el array de precios a objeto pricing
-    const pricing = formData.prices.reduce((acc, { duration, price }) => ({
-      ...acc,
-      [duration]: price
-    }), {})
-
-    onSave({
-      ...formData,
-      pricing
+    // Convertir los precios a duration_pricing
+    const duration_pricing: Record<string, number> = {}
+    formData.prices.forEach(({ duration, price }) => {
+      duration_pricing[duration] = price
     })
-    onClose()
+
+    console.log('Duration pricing generado:', duration_pricing)
+
+    const itemData = {
+      name: formData.name,
+      type: formData.type,
+      duration_pricing,
+      default_duration: formData.default_duration,
+      stock: formData.stock,
+      requires_deposit: Boolean(formData.requires_deposit),
+      deposit_amount: formData.requires_deposit ? Number(formData.deposit_amount) || 0 : null,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      empresa_id: formData.empresa_id || '',
+      sede_id: formData.sede_id
+    }
+
+    console.log('Datos a guardar:', itemData)
+    onSave(itemData)
   }
 
   const renderPricingSection = () => (
@@ -370,7 +433,7 @@ export function NewItemModal({
                     </label>
                     <SingleSelect
                       value={formData.type}
-                      onChange={(value) => setFormData(prev => ({ 
+                      onChange={(value: ItemType) => setFormData(prev => ({ 
                         ...prev, 
                         type: value 
                       }))}
@@ -417,14 +480,14 @@ export function NewItemModal({
                         </p>
                       </div>
                       <Switch
-                        checked={formData.requiresDeposit}
+                        checked={formData.requires_deposit}
                         onCheckedChange={(checked) => 
-                          setFormData(prev => ({ ...prev, requiresDeposit: checked }))
+                          setFormData(prev => ({ ...prev, requires_deposit: checked }))
                         }
                       />
                     </div>
 
-                    {formData.requiresDeposit && (
+                    {formData.requires_deposit && (
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">
                           Monto del depósito
@@ -433,10 +496,10 @@ export function NewItemModal({
                           type="number"
                           min="0"
                           placeholder="Ingrese el monto del depósito"
-                          value={formData.depositAmount}
+                          value={formData.deposit_amount}
                           onChange={(e) => setFormData(prev => ({ 
                             ...prev, 
-                            depositAmount: Number(e.target.value) 
+                            deposit_amount: Number(e.target.value) 
                           }))}
                           className={cn(
                             "w-full px-3 py-2 rounded-lg",

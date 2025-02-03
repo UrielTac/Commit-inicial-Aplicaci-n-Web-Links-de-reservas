@@ -1,5 +1,5 @@
 export type Sport = 'padel' | 'tennis' | 'badminton' | 'pickleball' | 'squash'
-export type CourtType = 'indoor' | 'outdoor' | 'covered'
+export type CourtType = 'indoor' | 'outdoor' | 'covered' // Interior, Exterior, Cubierta
 export type SurfaceType = 'crystal' | 'synthetic' | 'clay' | 'grass' | 'rubber' | 'concrete' | 'panoramic' | 'premium'
 export type DurationOption = 30 | 45 | 60 | 90 | 120
 

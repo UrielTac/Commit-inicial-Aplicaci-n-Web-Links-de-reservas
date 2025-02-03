@@ -4,6 +4,11 @@ import { Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { Providers } from './providers'
 import { DateProvider } from "@/contexts/DateContext"
+import { BranchProvider } from '@/contexts/BranchContext'
+import { OrganizationProvider } from '@/contexts/OrganizationContext'
+import { FormProvider } from "@/contexts/FormContext"
+import { PayPalProvider } from "@/components/providers/paypal-provider"
+import { StripeProvider } from "@/components/providers/stripe-provider"
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,14 +23,24 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>
-        <DateProvider>
-          <Providers>
-            {children}
-            <Toaster />
-          </Providers>
-        </DateProvider>
+    <html lang="es">
+      <body className={inter.className}>
+        <Providers>
+          <FormProvider>
+            <OrganizationProvider>
+              <BranchProvider>
+                <DateProvider>
+                  <PayPalProvider>
+                    <StripeProvider>
+                      {children}
+                    </StripeProvider>
+                  </PayPalProvider>
+                  <Toaster />
+                </DateProvider>
+              </BranchProvider>
+            </OrganizationProvider>
+          </FormProvider>
+        </Providers>
       </body>
     </html>
   )

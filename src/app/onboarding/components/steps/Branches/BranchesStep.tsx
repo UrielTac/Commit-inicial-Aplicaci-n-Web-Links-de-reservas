@@ -13,6 +13,8 @@ import { useState, useEffect } from "react"
 import * as RPNInput from "react-phone-number-input"
 import flags from "react-phone-number-input/flags"
 import 'react-phone-number-input/style.css'
+import { branchService } from "@/services/branchService"
+import { toast } from "@/components/ui/use-toast"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,11 +29,13 @@ import {
   TooltipProvider,
   Tooltip,
   TooltipContent,
-  TooltipTrigger,
+  TooltipTrigger, 
 } from "@/components/ui/tooltip"
 import { CourtsList, type CourtData } from "./components/CourtsList"
 import { ScheduleList, type ScheduleData } from "./components/ScheduleList"
 import { SectionTitle } from "@/components/ui/section-title"
+import { courtService } from "@/services/courtService"
+import { supabase } from "@/lib/supabase"
 
 // Variantes de animación
 const fadeInVariants = {
@@ -72,13 +76,13 @@ const buttonVariants = {
 
 // Datos iniciales
 const initialSchedule: ScheduleData = {
-  monday: { enabled: true, ranges: [{ start: '09:00', end: '18:00' }] },
-  tuesday: { enabled: true, ranges: [{ start: '09:00', end: '18:00' }] },
-  wednesday: { enabled: true, ranges: [{ start: '09:00', end: '18:00' }] },
-  thursday: { enabled: true, ranges: [{ start: '09:00', end: '18:00' }] },
-  friday: { enabled: true, ranges: [{ start: '09:00', end: '18:00' }] },
-  saturday: { enabled: true, ranges: [{ start: '09:00', end: '18:00' }] },
-  sunday: { enabled: true, ranges: [{ start: '09:00', end: '18:00' }] }
+  monday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  tuesday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  wednesday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  thursday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  friday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  saturday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  sunday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] }
 }
 
 const daysTranslations: { [key: string]: string } = {
@@ -102,9 +106,10 @@ const isCourtValid = (court: CourtData) => {
     court.sports.length > 0 &&
     court.type !== '' &&
     court.characteristics.length > 0 &&
-    court.durations.length > 0 &&
-    court.prices.length > 0 &&
-    court.prices.every(price => price.price !== '' && price.duration !== '')
+    court.available_durations.length > 0 &&
+    court.duration_pricing &&
+    Object.keys(court.duration_pricing).length > 0 &&
+    Object.values(court.duration_pricing).every(price => price !== '')
   )
 }
 
@@ -172,10 +177,116 @@ const FlagComponent = ({ country, countryName }: RPNInput.FlagProps) => {
   );
 };
 
+// Interfaces
+interface TimeRange {
+  openTime: string;
+  closeTime: string;
+}
+
+interface CustomPricing {
+  [key: string]: {
+    isSelected: boolean;
+    timeRanges: Array<{
+      startTime: string;
+      endTime: string;
+      percentage: number;
+    }>;
+  };
+}
+
+interface CourtFormData {
+  id: string;
+  name: string;
+  sports: string[];
+  type: string;
+  characteristics: string[];
+  available_durations: number[];
+  duration_pricing: Record<string, number>;
+  custom_pricing: CustomPricing;
+  is_active: boolean;
+}
+
+interface BranchFormData {
+  name: string;
+  address: string;
+  phone: string;
+  manager: string;
+  isActive: boolean;
+  schedule: Record<string, {
+    isOpen: boolean;
+    timeRanges: TimeRange[];
+  }>;
+  courts: CourtFormData[];
+}
+
+// Mapeo de características de inglés a español
+const featureMapEnToEs: Record<string, string> = {
+  'wall-glass': 'cristal-estandar',
+  'wall-panoramic': 'cristal-panoramico',
+  'wall-concrete': 'muro-hormigon',
+  'floor-synthetic': 'cesped-sintetico',
+  'floor-clay': 'tierra-batida',
+  'floor-concrete': 'hormigon-pulido',
+  'floor-rubber': 'goma-profesional'
+}
+
+// Mapeo de características de español a inglés
+const featureMapEsToEn: Record<string, string> = {
+  'cristal-estandar': 'wall-glass',
+  'cristal-panoramico': 'wall-panoramic',
+  'muro-hormigon': 'wall-concrete',
+  'cesped-sintetico': 'floor-synthetic',
+  'tierra-batida': 'floor-clay',
+  'hormigon-pulido': 'floor-concrete',
+  'goma-profesional': 'floor-rubber'
+}
+
+// Mapeo de deportes
+const sportMapping: Record<string, string> = {
+  'tenis': 'tennis',
+  'tennis': 'tennis',
+  'padel': 'padel',
+  'badminton': 'badminton',
+  'squash': 'squash',
+  'pickleball': 'pickleball'
+}
+
+// Función para validar y transformar el deporte
+const validateSport = (sport: string): string => {
+  const validSports = ['padel', 'tennis', 'badminton', 'squash', 'pickleball'];
+  const mappedSport = sportMapping[sport.toLowerCase()] || sport.toLowerCase();
+  return validSports.includes(mappedSport) ? mappedSport : 'padel';
+}
+
+// Tipos para la respuesta de la API
+interface CourtResponse {
+  id: string;
+  name: string;
+  sport: string;
+  court_type: string;
+  features: string[] | string;
+  available_durations: number[] | string;
+  duration_pricing: Record<string, number> | string;
+  custom_pricing: CustomPricing | string;
+  is_active: boolean;
+}
+
+interface BranchResponse {
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  manager_id: string | null;
+  is_active: boolean;
+  opening_hours: Record<string, any> | string | null;
+}
+
 export function BranchesStep({ onReturnToSelection }: BranchesStepProps) {
-  const { completeAndAdvance, currentBranchId, updateBranchData, branches } = useOnboarding()
+  const { completeAndAdvance, currentBranchId, updateBranchData, branches, setBranches, setCurrentBranchId } = useOnboarding()
   const [isSuccess, setIsSuccess] = useState(false)
   const [showExitDialog, setShowExitDialog] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isBranchSaved, setIsBranchSaved] = useState(false)
   const [formData, setFormData] = useState<BranchFormData>(() => {
     // Si hay un currentBranchId, buscar los datos guardados
     if (currentBranchId) {
@@ -189,33 +300,147 @@ export function BranchesStep({ onReturnToSelection }: BranchesStepProps) {
       name: '',
       address: '',
       phone: '',
-      email: '',
-      schedule: initialSchedule,
-      courts: [{
-        id: 'court-1',
-        name: 'Pista 1',
-        sports: [],
-        type: '',
-        characteristics: [],
-        durations: ['60'],
-        prices: [{
-          duration: '60',
-          price: '10',
-          timeRanges: []
-        }]
-      }]
+      manager: '',
+      isActive: true,
+      schedule: {
+        monday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+        tuesday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+        wednesday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+        thursday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+        friday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+        saturday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+        sunday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] }
+      },
+      courts: []
     }
   })
 
-  // Efecto para actualizar el formulario cuando cambia la sede seleccionada
+  // Efecto para cargar los datos de la sede si estamos en modo edición
   useEffect(() => {
-    if (currentBranchId) {
-      const branch = branches.find(b => b.id === currentBranchId)
-      if (branch?.data) {
-        setFormData(branch.data)
+    const loadBranchData = async () => {
+      if (currentBranchId) {
+        try {
+          const { data: branchData, error: branchError } = await branchService.getBranchById(currentBranchId);
+          
+          if (branchError) throw branchError;
+          if (!branchData) throw new Error('No se encontraron datos de la sede');
+
+          // Procesar los horarios
+          let scheduleData = {};
+          try {
+            // Asegurarnos de que opening_hours sea un objeto
+            const openingHours = typeof branchData.opening_hours === 'string' 
+              ? JSON.parse(branchData.opening_hours)
+              : branchData.opening_hours;
+
+            if (openingHours && typeof openingHours === 'object') {
+              scheduleData = Object.entries(openingHours).reduce((acc, [day, dayData]: [string, any]) => {
+                acc[day] = {
+                  isOpen: Boolean(dayData.isOpen),
+                  timeRanges: Array.isArray(dayData.timeRanges) 
+                    ? dayData.timeRanges.map((range: any) => ({
+                        openTime: range.openTime || '08:00',
+                        closeTime: range.closeTime || '22:00'
+                      }))
+                    : [{ openTime: '08:00', closeTime: '22:00' }]
+                };
+                return acc;
+              }, {});
+            }
+          } catch (error) {
+            console.error('Error procesando horarios:', error);
+            // Usar horarios por defecto si hay error
+            scheduleData = initialSchedule;
+          }
+
+          // Actualizar el estado del formulario
+          setFormData({
+            name: branchData.name || '',
+            address: branchData.address || '',
+            phone: branchData.phone || '',
+            manager: branchData.manager_id || '',
+            isActive: Boolean(branchData.is_active),
+            schedule: scheduleData, // Usar los horarios procesados
+            courts: [] // Las canchas se procesan después
+          });
+
+          // 2. Cargar las canchas asociadas
+          const { data: courtsData, error: courtsError } = await supabase
+            .from('courts')
+            .select('*')
+            .eq('branch_id', currentBranchId);
+
+          if (courtsError) throw courtsError;
+          
+          console.log('📍 Datos de canchas cargados:', courtsData); // Agregar log
+
+          // 3. Transformar los datos de las canchas con valores por defecto
+          const transformedCourts = (courtsData || []).map((court: CourtResponse) => {
+            try {
+              // Asegurar que tengamos valores por defecto para todos los campos
+              return {
+                id: court.id || `temp-${Date.now()}`,
+                name: court.name || 'Sin nombre',
+                sports: Array.isArray(court.sports) ? court.sports : 
+                       court.sport ? [court.sport] : ['padel'],
+                type: court.court_type === 'indoor' ? 'interior' : 
+                      court.court_type === 'outdoor' ? 'exterior' : 'cubierta',
+                characteristics: Array.isArray(court.features) 
+                  ? court.features.map(f => featureMapEnToEs[f] || f)
+                  : [],
+                available_durations: Array.isArray(court.available_durations)
+                  ? court.available_durations
+                  : typeof court.available_durations === 'string'
+                    ? court.available_durations.replace(/[{}]/g, '').split(',').map(Number)
+                    : [60],
+                duration_pricing: typeof court.duration_pricing === 'object' 
+                  ? court.duration_pricing 
+                  : { '60': 10 },
+                custom_pricing: typeof court.custom_pricing === 'object'
+                  ? court.custom_pricing
+                  : {},
+                is_active: Boolean(court.is_active)
+              } as CourtFormData;
+            } catch (error) {
+              console.error('Error transformando cancha:', error, court);
+              // Retornar estructura mínima válida en caso de error
+              return {
+                id: court.id || `temp-${Date.now()}`,
+                name: court.name || 'Sin nombre',
+                sports: ['padel'],
+                type: 'interior',
+                characteristics: [],
+                available_durations: [60],
+                duration_pricing: { '60': 10 },
+                custom_pricing: {},
+                is_active: true
+              } as CourtFormData;
+            }
+          });
+
+          console.log('📍 Canchas transformadas:', transformedCourts); // Agregar log
+
+          // 4. Actualizar el estado
+          setIsBranchSaved(true);
+          
+          setFormData(prev => ({
+            ...prev,
+            courts: transformedCourts
+          }));
+
+        } catch (error) {
+          console.error('❌ Error durante la carga de datos:', error);
+          toast({
+            title: "Error",
+            description: "No se pudieron cargar los datos de la sede",
+            variant: "destructive",
+          });
+        }
       }
-    }
-  }, [currentBranchId, branches])
+    };
+
+    loadBranchData();
+  }, [currentBranchId]);
 
   // Manejadores de eventos
   const handleInputChange = (field: keyof BranchFormData, value: string) => {
@@ -265,36 +490,227 @@ export function BranchesStep({ onReturnToSelection }: BranchesStepProps) {
     }))
   }
 
-  // Función para validar el formulario completo
-  const isFormValid = () => {
-    const basicInfoValid = 
-      formData.name.trim() !== '' &&
-      formData.address.trim() !== '' &&
-      formData.phone.trim() !== '' &&
-      formData.email.trim() !== ''
-
-    const hasValidCourt = formData.courts.some(isCourtValid)
-
-    return basicInfoValid && hasValidCourt
+  // Función para validar el formulario básico de la sede
+  const isBasicFormValid = () => {
+    return formData.name?.trim() !== '' &&
+      formData.address?.trim() !== '' &&
+      formData.phone?.trim() !== ''
   }
 
-  const handleSave = () => {
-    if (currentBranchId && isFormValid()) {
-      updateBranchData(currentBranchId, formData)
-      setIsSuccess(true)
-      setTimeout(() => {
-        setIsSuccess(false)
-        onReturnToSelection()
-      }, 2000)
+  // Función para validar la sección de pistas
+  const isCourtsFormValid = () => {
+    return formData.courts.length > 0
+  }
+
+  const handleSaveBranch = async () => {
+    if (!isBasicFormValid()) {
+      toast({
+        title: "Error",
+        description: "Por favor, completa todos los campos requeridos.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      console.log('📍 Iniciando guardado de sede')
+      
+      const userId = process.env.NEXT_PUBLIC_DEFAULT_USER_ID
+      if (!userId) {
+        console.error('❌ No se encontró el ID de usuario en las variables de entorno')
+        throw new Error('No se encontró el ID de usuario')
+      }
+
+      // Verificar que el schedule esté inicializado correctamente
+      if (!formData.schedule) {
+        throw new Error('Los horarios no están inicializados correctamente')
+      }
+
+      // Obtener el empresa_id del usuario
+      const { data: empresaData, error: empresaError } = await supabase
+        .from('empresas')
+        .select('id')
+        .eq('auth_user_id', userId)
+        .single()
+
+      if (empresaError || !empresaData) {
+        throw new Error('No se pudo obtener el ID de la empresa')
+      }
+
+      // Preparar los datos según los tipos de la tabla
+      const branchData = {
+        name: formData.name.trim(),
+        address: formData.address.trim() || null,
+        phone: formData.phone.trim() || null,
+        manager_id: formData.manager?.trim() || null,
+        is_active: formData.isActive,
+        opening_hours: formData.schedule,
+        settings: JSON.stringify({}),
+        empresa_id: empresaData.id,
+        organization_id: empresaData.id
+      }
+
+      console.log('📍 Datos de la sede a guardar:', branchData)
+
+      let response;
+      if (currentBranchId) {
+        // Actualizar sede existente
+        response = await branchService.updateBranch(currentBranchId, {
+          name: branchData.name,
+          address: branchData.address,
+          phone: branchData.phone,
+          manager: branchData.manager_id,
+          isActive: branchData.is_active,
+          opening_hours: branchData.opening_hours,
+          settings: branchData.settings
+        }, userId)
+      } else {
+        // Crear nueva sede
+        response = await branchService.createBranch(branchData, userId)
+      }
+
+      if (response.error) {
+        console.error('❌ Error al guardar la sede:', response.error)
+        throw new Error(response.error.message || 'Error al guardar la sede')
+      }
+
+      if (!response.data?.id) {
+        console.error('❌ No se recibió el ID de la sede')
+        throw new Error('No se pudo obtener el ID de la sede')
+      }
+
+      console.log('✅ Sede guardada exitosamente:', response.data)
+      
+      // Guardar el ID de la sede
+      setCurrentBranchId(response.data.id)
+      
+      // Actualizar la lista de sedes
+      setBranches(prev => {
+        const updatedBranches = currentBranchId
+          ? prev.map(b => b.id === currentBranchId ? { ...b, data: formData } : b)
+          : [...prev, { id: response.data!.id, data: formData }]
+        return updatedBranches
+      })
+      
+      setIsBranchSaved(true)
+        setIsSuccess(true)
+
+        toast({
+        title: "¡Éxito!",
+        description: `La sede se ha ${currentBranchId ? 'actualizado' : 'guardado'} correctamente. Ahora puedes configurar las pistas.`,
+      })
+
+      // Ocultar el mensaje de éxito después de 3 segundos
+        setTimeout(() => {
+          setIsSuccess(false)
+      }, 3000)
+
+    } catch (error: any) {
+      console.error('❌ Error al procesar la sede:', error)
+      setIsSuccess(false)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo procesar la sede. Por favor, inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  // Función para verificar si hay cambios sin guardar
+  const handleFinish = async () => {
+    try {
+      setIsSubmitting(true)
+
+      // Procesar cada cancha
+      for (const court of formData.courts) {
+        // Determinar la superficie basada en las características
+        const surfaceFeatures = court.characteristics
+          .map(char => featureMapEsToEn[char] || char)
+          .filter(feature => feature.startsWith('floor-'))
+        
+        const surface = surfaceFeatures.length > 0 
+          ? surfaceFeatures[0].replace('floor-', '') 
+          : 'synthetic' // valor por defecto si no hay superficie especificada
+
+        // Asegurarnos de que el deporte esté en el formato correcto
+        const sport = validateSport(court.sports[0] || 'padel');
+
+        const courtData = {
+          name: court.name,
+          sport: sport,
+          court_type: court.type === 'interior' ? 'indoor' : 
+                     court.type === 'exterior' ? 'outdoor' : 'covered',
+          features: court.characteristics.map(char => featureMapEsToEn[char] || char),
+          surface: surface,
+          available_durations: court.available_durations,
+          duration_pricing: court.duration_pricing,
+          custom_pricing: court.custom_pricing,
+          branch_id: currentBranchId,
+          is_active: court.is_active
+        }
+
+        console.log('📍 Datos de la cancha a guardar:', courtData)
+
+        // Verificar si la cancha tiene un ID válido
+        const isExistingCourt = court.id && !court.id.startsWith('court-')
+
+        try {
+          if (isExistingCourt) {
+            // Actualizar cancha existente
+            const { error: updateError } = await supabase
+              .from('courts')
+              .update(courtData)
+              .eq('id', court.id)
+
+            if (updateError) throw updateError
+          } else {
+            // Crear nueva cancha
+            const { error: insertError } = await supabase
+              .from('courts')
+              .insert(courtData)
+
+            if (insertError) throw insertError
+          }
+        } catch (error: any) {
+          console.error('❌ Error al procesar la cancha:', error)
+          throw new Error(`Error al ${isExistingCourt ? 'actualizar' : 'crear'} la cancha ${court.name}`)
+        }
+      }
+
+      toast({
+        title: "¡Éxito!",
+        description: "Las canchas se han guardado correctamente.",
+      })
+
+      onReturnToSelection()
+
+    } catch (error: any) {
+      console.error('❌ Error al guardar las canchas:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Ha ocurrido un error al guardar las canchas",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const hasUnsavedChanges = () => {
-    if (!currentBranchId) return false
+    if (!currentBranchId) {
+      // Si es una nueva sede, verificar si hay datos ingresados
+      return formData.name !== '' || 
+             formData.address !== '' || 
+             formData.phone !== '' || 
+             formData.manager !== '' ||
+             formData.courts.length > 0
+    }
     
+    // Si es una sede existente, comparar con los datos originales
     const currentBranch = branches.find(b => b.id === currentBranchId)
-    if (!currentBranch?.data) return formData.name !== '' || formData.address !== '' || formData.phone !== '' || formData.email !== ''
+    if (!currentBranch?.data) return false
     
     return JSON.stringify(currentBranch.data) !== JSON.stringify(formData)
   }
@@ -334,6 +750,8 @@ export function BranchesStep({ onReturnToSelection }: BranchesStepProps) {
         "scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100",
         "scrollbar-thumb-rounded-md hover:scrollbar-thumb-gray-400"
       )}>
+        {/* Sección 1: Información básica y horarios */}
+        <div className="space-y-8 py-8">
         <div className="space-y-2 mb-0">
           <h2 className="text-xl font-medium">Información de la sede</h2>
           <p className="text-sm text-gray-500">
@@ -341,9 +759,7 @@ export function BranchesStep({ onReturnToSelection }: BranchesStepProps) {
           </p>
         </div>
 
-        {/* Formulario */}
-        <div className="space-y-8 py-8">
-          {/* Campos del formulario */}
+          {/* Campos del formulario básico */}
           <div className="grid gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="name" className="text-sm">Nombre de la sede</Label>
@@ -385,13 +801,13 @@ export function BranchesStep({ onReturnToSelection }: BranchesStepProps) {
               </div>
 
               <div className="grid gap-1.5">
-                <Label htmlFor="email" className="text-sm">Email</Label>
+                <Label htmlFor="manager" className="text-sm">Encargado</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="Ej: sede@club.com"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  id="manager"
+                  type="text"
+                  placeholder="Ej: Juan Pérez"
+                  value={formData.manager}
+                  onChange={(e) => handleInputChange('manager', e.target.value)}
                   className="h-9 text-sm"
                 />
               </div>
@@ -399,43 +815,74 @@ export function BranchesStep({ onReturnToSelection }: BranchesStepProps) {
           </div>
 
           {/* Horarios */}
+          <div className="space-y-6">
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium mb-4">Horarios de apertura</h3>
           <ScheduleList 
             schedule={formData.schedule}
             onScheduleChange={(schedule) => setFormData(prev => ({ ...prev, schedule }))}
           />
+            </div>
+          </div>
 
-          {/* Pistas */}
+          {/* Botón Guardar para la primera sección */}
+          <div className="flex justify-end pt-6">
+            <Button
+              onClick={handleSaveBranch}
+              disabled={!isBasicFormValid() || isSubmitting}
+              className="gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" />
+                  Guardar Sede
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Separador */}
+        <div className="border-t my-8" />
+
+        {/* Sección 2: Pistas */}
+        <div className={cn(
+          "space-y-8 py-8",
+          !isBranchSaved && !currentBranchId && "opacity-50 pointer-events-none"
+        )}>
+          <div className="space-y-2">
+            <h2 className="text-xl font-medium">Configuración de Pistas</h2>
+            <p className="text-sm text-gray-500">
+              {isBranchSaved || currentBranchId
+                ? "Configura las pistas disponibles en tu sede" 
+                : "Guarda la información básica de la sede para configurar las pistas"}
+            </p>
+          </div>
+
+          {/* Lista de pistas */}
           <CourtsList 
             courts={formData.courts}
             onCourtsChange={(courts) => setFormData(prev => ({ ...prev, courts }))}
           />
 
-          {/* Botón de guardar */}
-          <div className="flex justify-end gap-4 mt-8">
+          {/* Botón Finalizar */}
+          <div className="flex justify-end pt-6">
             <Button
-              variant="outline"
-              onClick={handleReturn}
+              onClick={handleFinish}
+              disabled={!isBranchSaved || !isCourtsFormValid()}
               className="gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Volver
-            </Button>
-            <Button
-              onClick={handleSave}
-              className="gap-2"
-              disabled={!currentBranchId || !isFormValid()}
             >
               <Check className="h-4 w-4" />
-              Guardar Sede
+              Finalizar
             </Button>
           </div>
-
-          {/* Mensaje de validación */}
-          {!isFormValid() && (
-            <p className="text-sm text-red-500 mt-2">
-              * Debes completar todos los campos obligatorios y configurar al menos una pista correctamente.
-            </p>
-          )}
+        </div>
+      </div>
 
           {/* Diálogo de confirmación de salida */}
           <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
@@ -473,8 +920,6 @@ export function BranchesStep({ onReturnToSelection }: BranchesStepProps) {
               ¡Sede guardada con éxito!
             </motion.div>
           )}
-        </div>
-      </div>
     </motion.div>
   )
 } 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useOnboarding } from "../../context/OnboardingContext"
+import { loadStripe } from "@stripe/stripe-js"
+import axios from "axios"
+import { toast } from "sonner"
+import { useSearchParams } from "next/navigation"
 
 const fadeInVariants = {
   hidden: { 
@@ -45,40 +49,109 @@ interface BankAccount {
   holder: string
 }
 
+// Configuración de Stripe
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+
+// Función para iniciar el proceso de OAuth de Stripe
+const initiateStripeConnect = async () => {
+  try {
+    // Debugging: verificar variables de entorno
+    console.log('📍 Variables de entorno:', {
+      clientId: process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL,
+    })
+
+    // Construir la URL de autorización
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID!,
+      scope: 'read_write',
+      redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/stripe/callback`,
+      'stripe_user[country]': 'AR',
+      'stripe_user[business_type]': 'company',
+      'stripe_user[product_description]': 'Reservas deportivas',
+      state: Math.random().toString(36).substring(7), // Agregar estado para seguridad
+    })
+
+    const connectUrl = `https://connect.stripe.com/oauth/authorize?${params.toString()}`
+    console.log('📍 URL de conexión generada:', connectUrl)
+    window.location.href = connectUrl
+  } catch (error: any) {
+    console.error("Error al conectar con Stripe:", error)
+    toast.error("Error al conectar con Stripe. Por favor, intenta nuevamente.")
+  }
+}
+
 export function IntegrationsStep() {
-  const { completeAndAdvance } = useOnboarding()
+  const { completeAndAdvance, completedSteps } = useOnboarding()
   const [isConnecting, setIsConnecting] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
-  const [showContinueDialog, setShowContinueDialog] = useState(false)
-  const [showNoPaymentMethodDialog, setShowNoPaymentMethodDialog] = useState(false)
   const [connectedEmail, setConnectedEmail] = useState("")
-  
-  // Estados para la cuenta bancaria
-  const [showBankForm, setShowBankForm] = useState(false)
-  const [isBankConnected, setIsBankConnected] = useState(false)
-  const [bankData, setBankData] = useState<BankAccount | null>(null)
-  const [bankForm, setBankForm] = useState<BankAccount>({
-    cbu: '',
-    alias: '',
-    holder: ''
-  })
+  const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams()
 
-  // Verificar si al menos un método de pago está configurado
-  const hasPaymentMethod = isConnected || isBankConnected
+  // Verificar el estado de conexión al cargar el componente
+  useEffect(() => {
+    const checkStripeConnection = async () => {
+      try {
+        setError(null)
+        const response = await axios.get('/api/stripe/connection-status')
+        console.log('Estado de conexión:', response.data)
+        setIsConnected(response.data.connected)
+        if (response.data.email) {
+          setConnectedEmail(response.data.email)
+        }
+      } catch (error) {
+        console.error("Error al verificar la conexión de Stripe:", error)
+        setIsConnected(false)
+        setConnectedEmail("")
+        setError("No se pudo verificar el estado de la conexión")
+      }
+    }
 
-  const handleConnect = () => {
-    setIsConnecting(true)
-    // Simular conexión
-    setTimeout(() => {
+    checkStripeConnection()
+  }, [])
+
+  // Manejar errores de la URL
+  useEffect(() => {
+    const error = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
+    const step = searchParams.get('step')
+    
+    // Ignoramos el caso cuando el usuario decide volver voluntariamente
+    if (error === 'access_denied' && errorDescription?.includes('user denied')) {
+      console.log('📍 Usuario decidió volver voluntariamente')
+      return
+    }
+    
+    // Solo manejamos otros tipos de errores
+    if (error && !step) {
+      setError(decodeURIComponent(error))
       setIsConnecting(false)
-      setIsConnected(true)
-      setConnectedEmail("usuario@correo.com")
-    }, 2000)
+    }
+  }, [searchParams])
+
+  const handleConnect = async () => {
+    try {
+      setError(null)
+      setIsConnecting(true)
+      await initiateStripeConnect()
+    } catch (error: any) {
+      console.error("Error en la conexión:", error)
+      setError(error.message || "Error al iniciar la conexión con Stripe")
+      setIsConnecting(false)
+    }
   }
 
-  const handleDisconnect = () => {
-    setShowDisconnectDialog(true)
+  const handleDisconnect = async () => {
+    try {
+      await axios.post('/api/stripe/disconnect')
+      setIsConnected(false)
+      setConnectedEmail("")
+    } catch (error) {
+      console.error("Error al desconectar:", error)
+    }
   }
 
   const confirmDisconnect = () => {
@@ -88,31 +161,11 @@ export function IntegrationsStep() {
   }
 
   const handleContinue = () => {
-    if (!hasPaymentMethod) {
-      setShowNoPaymentMethodDialog(true)
+    if (!isConnected) {
+      toast.error("Debes conectar tu cuenta de Stripe antes de continuar")
       return
     }
     completeAndAdvance(2)
-  }
-
-  const confirmContinueWithoutStripe = () => {
-    setShowContinueDialog(false)
-    completeAndAdvance(2)
-  }
-
-  const handleBankConnect = () => {
-    setShowBankForm(true)
-  }
-
-  const handleBankDisconnect = () => {
-    setIsBankConnected(false)
-    setBankData(null)
-  }
-
-  const handleBankSubmit = () => {
-    setIsBankConnected(true)
-    setBankData(bankForm)
-    setShowBankForm(false)
   }
 
   return (
@@ -129,7 +182,7 @@ export function IntegrationsStep() {
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-semibold">Conecta tu cuenta de Stripe</h2>
               <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                Recomendado
+                Requerido
               </span>
               <TooltipProvider>
                 <Tooltip>
@@ -196,7 +249,7 @@ export function IntegrationsStep() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleDisconnect}
+                  onClick={() => setShowDisconnectDialog(true)}
                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
@@ -222,147 +275,12 @@ export function IntegrationsStep() {
           </div>
         </div>
 
-        {/* Sección de Cuenta Bancaria */}
-        <div className="space-y-4 pt-6 border-t">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold">Conecta una cuenta bancaria</h2>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <HelpCircle className="h-4 w-4 text-gray-400" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs">
-                      Conecta tu cuenta bancaria para recibir los pagos de tus clientes.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div className="space-y-3">
-              <p className="text-sm text-gray-500">
-                Ingresa los datos de tu cuenta bancaria para recibir los pagos directamente.
-              </p>
-
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <div className="flex gap-3">
-                  <div className="h-10 w-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                    <HelpCircle className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-gray-900">
-                      Información importante sobre los pagos por transferencia
-                    </p>
-                    <div className="space-y-1.5">
-                      <p className="text-xs text-gray-500 leading-relaxed">
-                        Es tu responsabilidad verificar que los datos bancarios ingresados sean correctos y monitorear que las transferencias de tus clientes se acrediten correctamente en tu cuenta.
-                      </p>
-                      <p className="text-xs text-gray-500 leading-relaxed">
-                        Para facilitar la verificación, proporcionamos a tus clientes la opción de adjuntar comprobantes de transferencia que podrás revisar desde el panel de administración.
-                      </p>
-                      <div className="text-xs text-gray-500 bg-white rounded border border-gray-100 p-2 mt-2">
-                        <p className="font-medium text-gray-700 mb-1">¿Cómo funciona?</p>
-                        <ul className="space-y-1 list-disc pl-4 text-gray-500">
-                          <li>Tus clientes realizan la transferencia a tu cuenta</li>
-                          <li>Pueden adjuntar una captura del comprobante</li>
-                          <li>Recibirás una notificación para verificar el pago</li>
-                          <li>Podrás confirmar o rechazar el pago desde el panel</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {isBankConnected ? (
-            <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Estado de la cuenta</p>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <p className="text-sm text-gray-600">
-                    Cuenta conectada: <span className="font-medium">{bankData?.holder}</span>
-                  </p>
-                </div>
-                <p className="text-xs text-gray-500">CBU/CVU: {bankData?.cbu}</p>
-                <p className="text-xs text-gray-500">Alias: {bankData?.alias}</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBankDisconnect}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Desconectar cuenta
-              </Button>
-            </div>
-          ) : showBankForm ? (
-            <div className="space-y-4 bg-gray-50 rounded-lg p-4">
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="cbu">CVU/CBU</Label>
-                  <Input
-                    id="cbu"
-                    value={bankForm.cbu}
-                    onChange={(e) => setBankForm(prev => ({ ...prev, cbu: e.target.value }))}
-                    placeholder="Ingresa tu CVU o CBU"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="alias">Alias</Label>
-                  <Input
-                    id="alias"
-                    value={bankForm.alias}
-                    onChange={(e) => setBankForm(prev => ({ ...prev, alias: e.target.value }))}
-                    placeholder="Ingresa el alias de tu cuenta"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="holder">Titular</Label>
-                  <Input
-                    id="holder"
-                    value={bankForm.holder}
-                    onChange={(e) => setBankForm(prev => ({ ...prev, holder: e.target.value }))}
-                    placeholder="Nombre del titular de la cuenta"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowBankForm(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleBankSubmit}
-                  disabled={!bankForm.cbu || !bankForm.alias || !bankForm.holder}
-                  className="bg-black hover:bg-black/90 text-white"
-                >
-                  Guardar cuenta
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button
-              onClick={handleBankConnect}
-              className="w-full sm:w-auto bg-black hover:bg-black/90 text-white"
-            >
-              <Building className="h-4 w-4 mr-2" />
-              Conectar cuenta bancaria
-            </Button>
-          )}
-        </div>
-
         {/* Botón de continuar */}
         <div className="mt-8 flex justify-end">
           <Button
             onClick={handleContinue}
             className="px-8"
+            disabled={!isConnected}
           >
             Continuar
           </Button>
@@ -391,51 +309,13 @@ export function IntegrationsStep() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Diálogo de confirmación para continuar sin Stripe */}
-        <AlertDialog open={showContinueDialog} onOpenChange={setShowContinueDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro de avanzar sin conectar tu cuenta Stripe?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Sin una cuenta de Stripe conectada, no podrás procesar pagos en línea. Podrás configurar esto más tarde desde el panel de administración.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setShowContinueDialog(false)}>
-                Cancelar
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  setShowContinueDialog(false)
-                  completeAndAdvance(2)
-                }}
-              >
-                Continuar sin Stripe
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Diálogo de método de pago requerido */}
-        <AlertDialog 
-          open={showNoPaymentMethodDialog} 
-          onOpenChange={setShowNoPaymentMethodDialog}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Método de pago requerido</AlertDialogTitle>
-              <AlertDialogDescription>
-                Para continuar, debes configurar al menos un método de pago (Stripe o cuenta bancaria).
-                Esto es necesario para procesar los pagos de tus clientes.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogAction onClick={() => setShowNoPaymentMethodDialog(false)}>
-                Entendido
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-red-600">
+              Error: {error}
+            </p>
+          </div>
+        )}
       </div>
     </motion.div>
   )

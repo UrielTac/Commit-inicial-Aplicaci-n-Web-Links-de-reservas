@@ -1,20 +1,22 @@
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { Trash2, Plus } from "lucide-react"
-import { SectionTitle } from "@/components/ui/section-title"
+import { Schedule, ScheduleDay } from '@/types/schedule'
+
+export type ScheduleData = Schedule
 
 export interface ScheduleRange {
-  start: string
-  end: string
+  openTime: string
+  closeTime: string
 }
 
 export interface ScheduleDay {
-  enabled: boolean
-  ranges: ScheduleRange[]
+  isOpen: boolean
+  timeRanges: ScheduleRange[]
 }
 
 export interface ScheduleData {
@@ -32,128 +34,196 @@ export const daysTranslations: { [key: string]: string } = {
 }
 
 interface ScheduleListProps {
-  schedule: ScheduleData
+  schedule?: ScheduleData
   onScheduleChange: (schedule: ScheduleData) => void
 }
 
+const defaultSchedule: ScheduleData = {
+  monday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  tuesday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  wednesday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  thursday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  friday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  saturday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] },
+  sunday: { isOpen: true, timeRanges: [{ openTime: '08:00', closeTime: '22:00' }] }
+}
+
 export function ScheduleList({ schedule, onScheduleChange }: ScheduleListProps) {
-  const handleDayToggle = (day: string, enabled: boolean) => {
-    onScheduleChange({
-      ...schedule,
-      [day]: {
-        ...schedule[day],
-        enabled
+  // Modificar la inicialización del schedule
+  const initialSchedule = useMemo(() => {
+    if (!schedule) return defaultSchedule;
+
+    return Object.entries(defaultSchedule).reduce((acc, [day, defaultDay]) => {
+      const scheduleDay = schedule[day];
+      
+      // Si existe el día en el schedule proporcionado, usar esos datos
+      if (scheduleDay) {
+        acc[day] = {
+          isOpen: typeof scheduleDay.isOpen === 'boolean' ? scheduleDay.isOpen : defaultDay.isOpen,
+          timeRanges: Array.isArray(scheduleDay.timeRanges) && scheduleDay.timeRanges.length > 0
+            ? scheduleDay.timeRanges.map(range => ({
+                openTime: range.openTime || defaultDay.timeRanges[0].openTime,
+                closeTime: range.closeTime || defaultDay.timeRanges[0].closeTime
+              }))
+            : defaultDay.timeRanges
+        };
+      } else {
+        // Si no existe, usar los valores por defecto
+        acc[day] = { ...defaultDay };
       }
-    })
+      return acc;
+    }, {} as ScheduleData);
+  }, [schedule]);
+
+  const [currentSchedule, setCurrentSchedule] = useState<ScheduleData>(initialSchedule);
+
+  // Actualizar currentSchedule cuando cambie el schedule prop
+  useEffect(() => {
+    setCurrentSchedule(initialSchedule);
+  }, [initialSchedule]);
+
+  const updateSchedule = (newSchedule: ScheduleData) => {
+    setCurrentSchedule(newSchedule)
+    onScheduleChange(newSchedule)
   }
 
-  const handleScheduleChange = (day: string, field: string, value: string, rangeIndex: number = 0) => {
-    onScheduleChange({
-      ...schedule,
+  const handleDayToggle = (day: string, checked: boolean) => {
+    const newSchedule = {
+      ...currentSchedule,
       [day]: {
-        ...schedule[day],
-        ranges: schedule[day].ranges.map((range, idx) => 
-          idx === rangeIndex 
-            ? { ...range, [field]: value }
-            : range
-        )
+        ...currentSchedule[day],
+        isOpen: checked,
+        timeRanges: currentSchedule[day].timeRanges?.length > 0 
+          ? currentSchedule[day].timeRanges 
+          : [{ openTime: '09:00', closeTime: '18:00' }]
       }
-    })
+    }
+    updateSchedule(newSchedule)
   }
 
-  const addSecondRange = (day: string) => {
-    onScheduleChange({
-      ...schedule,
-      [day]: {
-        ...schedule[day],
-        ranges: [...schedule[day].ranges, { start: '16:00', end: '22:00' }]
-      }
-    })
+  const handleTimeChange = (day: string, index: number, field: 'openTime' | 'closeTime', value: string) => {
+    const newSchedule = { ...currentSchedule }
+    const daySchedule = newSchedule[day]
+    const updatedRanges = [...(daySchedule.timeRanges || [{ openTime: '08:00', closeTime: '22:00' }])]
+    updatedRanges[index] = {
+      ...updatedRanges[index],
+      [field]: value
+    }
+    newSchedule[day] = {
+      ...daySchedule,
+      timeRanges: updatedRanges
+    }
+    updateSchedule(newSchedule)
   }
 
-  const removeSecondRange = (day: string, rangeIndex: number) => {
-    onScheduleChange({
-      ...schedule,
-      [day]: {
-        ...schedule[day],
-        ranges: schedule[day].ranges.filter((_, idx) => idx !== rangeIndex)
-      }
-    })
+  const addRange = (day: string) => {
+    const newSchedule = { ...currentSchedule }
+    const daySchedule = newSchedule[day]
+    const currentRanges = daySchedule.timeRanges || [{ openTime: '08:00', closeTime: '22:00' }]
+    const lastRange = currentRanges[currentRanges.length - 1]
+    const newRange = {
+      openTime: lastRange ? lastRange.closeTime : '08:00',
+      closeTime: lastRange ? incrementTime(lastRange.closeTime, 2) : '10:00'
+    }
+    newSchedule[day] = {
+      ...daySchedule,
+      timeRanges: [...currentRanges, newRange]
+    }
+    updateSchedule(newSchedule)
+  }
+
+  const removeRange = (day: string, index: number) => {
+    const daySchedule = currentSchedule[day]
+    if (!daySchedule?.timeRanges || daySchedule.timeRanges.length <= 1) return
+    
+    const newSchedule = { ...currentSchedule }
+    const updatedRanges = [...daySchedule.timeRanges]
+    updatedRanges.splice(index, 1)
+    newSchedule[day] = {
+      ...daySchedule,
+      timeRanges: updatedRanges
+    }
+    updateSchedule(newSchedule)
+  }
+
+  const incrementTime = (time: string, hours: number): string => {
+    const [h, m] = time.split(':').map(Number)
+    const newHour = (h + hours) % 24
+    return `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
   }
 
   return (
     <div className="space-y-4">
-      <SectionTitle
-        title="Horarios"
-        subtitle="Establece los horarios de apertura y cierre"
-        tooltip="Define los horarios de operación para cada día de la semana. Puedes marcar días como cerrados o establecer diferentes horarios según el día."
-      />
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium">Horarios de apertura</h3>
+          <p className="text-sm text-muted-foreground">
+            Configura los horarios de apertura para cada día de la semana
+          </p>
+        </div>
+      </div>
       <div className="space-y-2 border rounded-lg divide-y">
-        {Object.entries(schedule).map(([day, daySchedule]) => (
-          <div key={day} className="flex items-center gap-4 p-3">
-            <div className="w-28">
-              <span className="text-xs font-medium text-gray-700">{daysTranslations[day]}</span>
+        {Object.entries(currentSchedule).map(([day, daySchedule]) => (
+          <div key={day} className="flex flex-col sm:flex-row items-start gap-4 p-3">
+            <div className="w-full sm:w-28 pb-2 sm:pb-0 sm:pt-1 border-b sm:border-0">
+              <span className="text-xs font-medium text-gray-700">
+                {daysTranslations[day]}
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id={`checkbox-${day}`}
-                checked={daySchedule.enabled}
-                onCheckedChange={(checked) => handleDayToggle(day, checked as boolean)}
-                className="h-3.5 w-3.5 rounded-[4px] border-gray-300 data-[state=checked]:bg-black data-[state=checked]:border-black"
-              />
-              <Label htmlFor={`checkbox-${day}`} className="text-xs text-gray-600">
-                {daySchedule.enabled ? 'Abierto' : 'Cerrado'}
-              </Label>
-            </div>
-            {daySchedule.enabled && (
-              <div className="flex-1">
+            <div className="flex flex-col flex-1 gap-3 w-full">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={`checkbox-${day}`}
+                  checked={daySchedule.isOpen}
+                  onCheckedChange={(checked) => handleDayToggle(day, checked as boolean)}
+                  className="h-3.5 w-3.5 rounded-[4px] border-gray-300 data-[state=checked]:bg-black data-[state=checked]:border-black"
+                />
+                <Label htmlFor={`checkbox-${day}`} className="text-xs text-gray-600">
+                  {daySchedule.isOpen ? 'Abierto' : 'Cerrado'}
+                </Label>
+              </div>
+              {daySchedule.isOpen && daySchedule.timeRanges && daySchedule.timeRanges.length > 0 && (
                 <div className="space-y-2">
-                  {daySchedule.ranges.map((range, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="flex items-center gap-2">
-                        <Input
+                  {daySchedule.timeRanges.map((range, index) => (
+                    <div key={index} className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-[280px]">
+                        <input
                           type="time"
-                          value={range.start}
-                          onChange={(e) => handleScheduleChange(day, 'start', e.target.value, index)}
-                          className="w-32 h-8 text-sm"
+                          value={range.openTime}
+                          onChange={(e) => handleTimeChange(day, index, 'openTime', e.target.value)}
+                          className="flex-1 px-2 py-1 text-sm border rounded"
                         />
                         <span className="text-sm text-gray-500">a</span>
-                        <Input
+                        <input
                           type="time"
-                          value={range.end}
-                          onChange={(e) => handleScheduleChange(day, 'end', e.target.value, index)}
-                          className="w-32 h-8 text-sm"
+                          value={range.closeTime}
+                          onChange={(e) => handleTimeChange(day, index, 'closeTime', e.target.value)}
+                          className="flex-1 px-2 py-1 text-sm border rounded"
                         />
                       </div>
-                      <div className="flex items-center">
-                        {daySchedule.ranges.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeSecondRange(day, index)}
-                            className="h-8 w-8 p-0 ml-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {(daySchedule.ranges.length === 1 || index === daySchedule.ranges.length - 1) && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => addSecondRange(day)}
-                            className="h-8 w-8 p-0 ml-2"
-                          >
-                            <Plus className="h-4 w-4 text-gray-500 hover:text-gray-700" />
-                          </Button>
-                        )}
-                      </div>
+                      {daySchedule.timeRanges.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeRange(day, index)}
+                          className="h-8 w-8 p-0 ml-auto sm:ml-0"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      )}
                     </div>
                   ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => addRange(day)}
+                    className="text-xs"
+                  >
+                    + Agregar horario
+                  </Button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ))}
       </div>

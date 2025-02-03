@@ -53,20 +53,18 @@ class ItemService {
       // Transformar los datos al formato esperado por la interfaz Item
       const items = data.map(item => ({
         id: item.id,
-        name: item.name || '',
-        description: item.description || '',
+        name: item.name,
         type: item.type as ItemType,
-        price: Number(item.price) || 0,
-        stock: Number(item.stock) || 0,
         duration_pricing: item.duration_pricing || {},
         default_duration: item.default_duration || 60,
-        requiresDeposit: item.requires_deposit,
-        depositAmount: item.deposit_amount,
-        isActive: item.is_active,
-        sede_id: item.sede_id,
-        empresa_id: item.empresa_id,
+        stock: item.stock || 0,
+        requires_deposit: item.requires_deposit,
+        deposit_amount: item.deposit_amount,
+        is_active: item.is_active,
         created_at: item.created_at,
-        updated_at: item.updated_at
+        updated_at: item.updated_at,
+        empresa_id: item.empresa_id,
+        sede_id: item.sede_id
       }))
 
       console.log('✅ Items transformados:', items)
@@ -95,8 +93,8 @@ class ItemService {
       if (!sede.empresa_id) throw new Error('La sede no tiene una empresa asociada')
 
       // Validaciones
-      const { stock, defaultDuration } = this.validateItemData(item)
-      const duration_pricing = this.validatePricing(item.pricing)
+      const { stock, defaultDuration, requiresDeposit, depositAmount } = this.validateItemData(item)
+      const duration_pricing = this.validatePricing(item.duration_pricing)
 
       // Crear item
       const { data, error } = await this.supabase
@@ -107,8 +105,8 @@ class ItemService {
           duration_pricing,
           default_duration: defaultDuration,
           stock,
-          requires_deposit: item.requiresDeposit,
-          deposit_amount: item.depositAmount,
+          requires_deposit: requiresDeposit,
+          deposit_amount: depositAmount,
           is_active: true,
           empresa_id: sede.empresa_id,
           sede_id: sedeId,
@@ -137,8 +135,8 @@ class ItemService {
       if (!id) throw new Error('El ID del item es requerido')
 
       // Validaciones
-      const { stock, defaultDuration } = this.validateItemData(item)
-      const duration_pricing = this.validatePricing(item.pricing)
+      const { stock, defaultDuration, requiresDeposit, depositAmount } = this.validateItemData(item)
+      const duration_pricing = this.validatePricing(item.duration_pricing)
 
       // Obtener la sede y verificar empresa_id
       const { data: sede, error: sedeError } = await this.supabase
@@ -159,9 +157,9 @@ class ItemService {
           duration_pricing,
           default_duration: defaultDuration,
           stock,
-          requires_deposit: item.requiresDeposit,
-          deposit_amount: item.depositAmount,
-          is_active: item.isActive,
+          requires_deposit: requiresDeposit,
+          deposit_amount: depositAmount,
+          is_active: item.is_active,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -207,13 +205,17 @@ class ItemService {
     return {
       id: dbItem.id,
       name: dbItem.name,
-      type: dbItem.type,
-      pricing: dbItem.duration_pricing || {},
-      defaultDuration: dbItem.default_duration || 60,
+      type: dbItem.type as ItemType,
+      duration_pricing: dbItem.duration_pricing || {},
+      default_duration: dbItem.default_duration || 60,
       stock: dbItem.stock,
-      requiresDeposit: dbItem.requires_deposit,
-      depositAmount: dbItem.deposit_amount || undefined,
-      isActive: dbItem.is_active
+      requires_deposit: dbItem.requires_deposit,
+      deposit_amount: dbItem.deposit_amount,
+      is_active: dbItem.is_active,
+      created_at: dbItem.created_at,
+      updated_at: dbItem.updated_at,
+      empresa_id: dbItem.empresa_id,
+      sede_id: dbItem.sede_id
     }
   }
 
@@ -222,21 +224,32 @@ class ItemService {
     if (!item.type) throw new Error('El tipo es requerido')
     if (item.stock === undefined || item.stock === null) throw new Error('El stock es requerido')
     
+    // Asegurarnos de que requires_deposit sea un booleano
+    const requiresDeposit = Boolean(item.requires_deposit)
+    
     const stock = Number(item.stock)
     if (isNaN(stock) || stock < 0) throw new Error('El stock debe ser un número válido no negativo')
 
-    const defaultDuration = Number(item.defaultDuration) || 60
+    const defaultDuration = Number(item.default_duration) || 60
     if (isNaN(defaultDuration) || defaultDuration <= 0) {
       throw new Error('La duración por defecto debe ser un número válido mayor a 0')
     }
 
-    return { stock, defaultDuration }
+    // Manejar el deposit_amount basado en requires_deposit
+    const depositAmount = requiresDeposit ? Number(item.deposit_amount) || 0 : 0
+
+    return { 
+      stock, 
+      defaultDuration,
+      requiresDeposit,
+      depositAmount
+    }
   }
 
-  private validatePricing(pricing: Record<string, number> = {}) {
-    const duration_pricing: Record<string, number> = {}
+  private validatePricing(duration_pricing: Record<string, number> = {}) {
+    const validatedPricing: Record<string, number> = {}
     
-    Object.entries(pricing).forEach(([duration, price]) => {
+    Object.entries(duration_pricing).forEach(([duration, price]) => {
       const numDuration = Number(duration)
       const numPrice = Number(price)
       
@@ -247,10 +260,10 @@ class ItemService {
         throw new Error('Los precios no pueden ser negativos')
       }
       
-      duration_pricing[numDuration] = numPrice
+      validatedPricing[numDuration] = numPrice
     })
 
-    return duration_pricing
+    return validatedPricing
   }
 }
 

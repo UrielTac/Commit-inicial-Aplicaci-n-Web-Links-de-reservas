@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { useBranches } from '@/hooks/useBranches'
 import { courtService } from '@/services/courtService'
-import { useCourts } from '@/hooks/useCourts'
 
 interface Court {
   id: string
@@ -11,16 +10,72 @@ interface Court {
   is_active: boolean
 }
 
-export function useGroupedCourts() {
-  const { branches = [], isLoading: isLoadingBranches, error: branchesError } = useBranches()
+interface UseGroupedCourtsProps {
+  selectedBranchIds?: string[]
+}
+
+export function useGroupedCourts({ selectedBranchIds }: UseGroupedCourtsProps = {}) {
+  const { 
+    branches = [], 
+    isLoading: isLoadingBranches, 
+    error: branchesError,
+    currentBranch
+  } = useBranches()
   
-  const { data: courts = [], isLoading: isLoadingCourts, error: courtsError } = useCourts({ 
-    onlyActive: true 
+  // Filtrar sedes seleccionadas si se proporcionan
+  const filteredBranches = useMemo(() => {
+    if (!selectedBranchIds?.length) return branches
+    return branches.filter(branch => selectedBranchIds.includes(branch.id))
+  }, [branches, selectedBranchIds])
+  
+  // Obtener las canchas de todas las sedes
+  const branchQueries = useQueries({
+    queries: filteredBranches.map(branch => ({
+      queryKey: ['courts', branch.id],
+      queryFn: () => courtService.getCourtsByBranch(branch.id),
+      enabled: !!branch.id
+    }))
+  })
+
+  const isLoadingCourts = branchQueries.some(query => query.isLoading)
+  const courtsError = branchQueries.find(query => query.error)?.error
+
+  const courts = useMemo(() => {
+    return branchQueries
+      .filter(query => !query.isLoading && !query.error && query.data?.data)
+      .flatMap(query => query.data?.data || [])
+      // Filtrar solo canchas activas
+      .filter(court => court.is_active)
+  }, [branchQueries])
+
+  console.log('useGroupedCourts - Estado:', {
+    branches: filteredBranches.length,
+    courts: courts.length,
+    isLoadingBranches,
+    isLoadingCourts,
+    branchesError,
+    courtsError,
+    selectedBranchIds,
+    currentBranch: currentBranch?.id
   })
 
   const courtOptions = useMemo(() => {
+    // Si está cargando o hay error, retornar array vacío
+    if (isLoadingBranches || isLoadingCourts) {
+      console.log('useGroupedCourts - Cargando datos...')
+      return []
+    }
+
+    if (branchesError || courtsError) {
+      console.error('useGroupedCourts - Error:', { branchesError, courtsError })
+      return []
+    }
+
     // Si no hay sedes o canchas, retornar array vacío
-    if (!branches.length || !courts.length) return []
+    if (!filteredBranches.length || !courts.length) {
+      console.log('useGroupedCourts - No hay datos disponibles')
+      return []
+    }
 
     // Crear un mapa de canchas por sede
     const courtsByBranch = new Map<string, Court[]>()
@@ -30,11 +85,14 @@ export function useGroupedCourts() {
       if (!courtsByBranch.has(court.branch_id)) {
         courtsByBranch.set(court.branch_id, [])
       }
-      courtsByBranch.get(court.branch_id)?.push(court)
+      const branchCourts = courtsByBranch.get(court.branch_id)
+      if (branchCourts) {
+        branchCourts.push(court)
+      }
     })
 
     // Mapear las sedes a las opciones del multi-select
-    return branches
+    const options = filteredBranches
       .map(branch => {
         const branchCourts = courtsByBranch.get(branch.id) || []
         return {
@@ -46,8 +104,12 @@ export function useGroupedCourts() {
           }))
         }
       })
-      .filter(group => group.options.length > 0) // Solo incluir sedes con canchas
-  }, [branches, courts])
+      // Solo incluir sedes con canchas activas
+      .filter(group => group.options.length > 0)
+
+    console.log('useGroupedCourts - Opciones generadas:', options)
+    return options
+  }, [filteredBranches, courts, isLoadingBranches, isLoadingCourts, branchesError, courtsError])
 
   return {
     courtOptions,
