@@ -1,57 +1,97 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-interface StripeConnection {
-  stripeAccountId: string | null;
+interface StripeConnectionState {
   isConnected: boolean;
   isLoading: boolean;
-  error: string | null;
+  error: Error | null;
+  stripeAccountId: string | null;
+  charges_enabled: boolean;
 }
 
-export function useStripeConnection(): StripeConnection {
-  const [connection, setConnection] = useState<StripeConnection>({
-    stripeAccountId: null,
+export function useStripeConnection(empresaId?: string) {
+  const [state, setState] = useState<StripeConnectionState>({
     isConnected: false,
     isLoading: true,
-    error: null
+    error: null,
+    stripeAccountId: null,
+    charges_enabled: false
   });
 
-  useEffect(() => {
-    async function checkConnection() {
-      try {
-        const response = await fetch('/api/stripe/connection-status');
-        const data = await response.json();
+  const supabase = createClientComponentClient();
 
-        if (!response.ok) {
-          setConnection({
-            stripeAccountId: null,
-            isConnected: false,
-            isLoading: false,
-            error: data.error || 'Error al verificar la conexión con Stripe'
-          });
-          return;
+  useEffect(() => {
+    async function checkStripeConnection() {
+      if (!empresaId) {
+        console.error('❌ No se proporcionó ID de empresa');
+        setState(prev => ({ 
+          ...prev, 
+          isLoading: false,
+          error: new Error('No se proporcionó ID de empresa')
+        }));
+        return;
+      }
+
+      try {
+        // Primero verificamos si existe la empresa
+        const { data: empresa, error: empresaError } = await supabase
+          .from('empresas')
+          .select('id')
+          .eq('id', empresaId)
+          .single();
+
+        if (empresaError || !empresa) {
+          throw new Error('No se encontró la empresa especificada');
         }
 
-        setConnection({
-          stripeAccountId: data.stripeAccountId,
-          isConnected: data.isConnected,
+        // Luego buscamos la conexión de Stripe
+        const { data: stripeConnection, error: stripeError } = await supabase
+          .from('stripe_connections')
+          .select('*')
+          .eq('empresa_id', empresaId)
+          .maybeSingle();
+
+        if (stripeError) {
+          throw stripeError;
+        }
+
+        // Validamos el estado de la conexión
+        const isValidConnection = stripeConnection && 
+                                stripeConnection.stripe_account_id && 
+                                stripeConnection.charges_enabled;
+
+        setState({
+          isConnected: !!isValidConnection,
           isLoading: false,
-          error: null
+          error: null,
+          stripeAccountId: stripeConnection?.stripe_account_id || null,
+          charges_enabled: stripeConnection?.charges_enabled || false
         });
+
+        // Log informativo
+        if (!isValidConnection) {
+          console.warn('⚠️ La cuenta de Stripe no está completamente configurada:', {
+            tieneConexion: !!stripeConnection,
+            tieneCuentaStripe: !!stripeConnection?.stripe_account_id,
+            cargosHabilitados: stripeConnection?.charges_enabled
+          });
+        }
+
       } catch (error) {
-        console.error('Error al verificar la conexión con Stripe:', error);
-        setConnection({
-          stripeAccountId: null,
-          isConnected: false,
+        console.error('❌ Error al verificar la conexión de Stripe:', error);
+        setState(prev => ({
+          ...prev,
           isLoading: false,
-          error: 'Error al verificar la conexión con Stripe'
-        });
+          error: error as Error,
+          isConnected: false
+        }));
       }
     }
 
-    checkConnection();
-  }, []);
+    checkStripeConnection();
+  }, [empresaId, supabase]);
 
-  return connection;
+  return state;
 } 

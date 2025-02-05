@@ -1,70 +1,102 @@
 'use client';
 
 import { cn } from "@/lib/utils";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface SavedCardProps {
+  id: string;
   last4: string;
   brand: string;
-  expiryMonth: string;
-  expiryYear: string;
+  expMonth: number;
+  expYear: number;
   theme: 'light' | 'dark';
-  isSelected?: boolean;
-  onClick?: () => void;
+  onSelect: (cardId: string) => void;
+  onDelete: (cardId: string) => Promise<void>;
 }
 
 export function SavedCard({
+  id,
   last4,
   brand,
-  expiryMonth,
-  expiryYear,
+  expMonth,
+  expYear,
   theme,
-  isSelected,
-  onClick
+  onSelect,
+  onDelete
 }: SavedCardProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isDeleting) return;
+
+    try {
+      setIsDeleting(true);
+      await onDelete(id);
+      toast.success('Tarjeta eliminada exitosamente');
+    } catch (error) {
+      toast.error('Error al eliminar la tarjeta');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <div
-      onClick={onClick}
+    <button
+      onClick={() => onSelect(id)}
       className={cn(
-        "w-full p-6 rounded-xl transition-all cursor-pointer",
-        "border-2",
-        isSelected
-          ? theme === 'dark'
-            ? "border-white bg-neutral-800"
-            : "border-black bg-gray-50"
-          : theme === 'dark'
-          ? "border-neutral-700 hover:border-neutral-600"
-          : "border-gray-200 hover:border-gray-300",
-        "flex flex-col gap-4"
+        "w-full p-4 rounded-lg text-left transition-all",
+        "border-2 relative group",
+        theme === 'dark'
+          ? "bg-neutral-900 border-neutral-800 hover:border-neutral-700"
+          : "bg-white border-gray-200 hover:border-gray-300"
       )}
     >
-      <div className="flex justify-between items-start">
-        <CreditCard className={cn(
-          "h-8 w-8",
-          theme === 'dark' ? "text-white" : "text-black"
-        )} />
-        <span className={cn(
-          "text-sm font-medium",
-          theme === 'dark' ? "text-gray-300" : "text-gray-600"
-        )}>
-          {brand}
-        </span>
-      </div>
-      
-      <div className="space-y-1">
-        <div className={cn(
-          "text-lg font-medium tracking-wider",
-          theme === 'dark' ? "text-white" : "text-black"
-        )}>
-          •••• •••• •••• {last4}
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "p-2 rounded-md",
+            theme === 'dark' ? "bg-neutral-800" : "bg-gray-100"
+          )}>
+            <CreditCard className={cn(
+              "w-6 h-6",
+              theme === 'dark' ? "text-gray-400" : "text-gray-600"
+            )} />
+          </div>
+          <div>
+            <p className={cn(
+              "font-medium",
+              theme === 'dark' ? "text-white" : "text-gray-900"
+            )}>
+              {brand} •••• {last4}
+            </p>
+            <p className={cn(
+              "text-sm",
+              theme === 'dark' ? "text-gray-400" : "text-gray-500"
+            )}>
+              Expira: {expMonth.toString().padStart(2, '0')}/{expYear}
+            </p>
+          </div>
         </div>
-        <div className={cn(
-          "text-sm",
-          theme === 'dark' ? "text-gray-400" : "text-gray-500"
-        )}>
-          Expira: {expiryMonth}/{expiryYear}
-        </div>
+
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className={cn(
+            "opacity-0 group-hover:opacity-100 transition-opacity",
+            theme === 'dark' 
+              ? "hover:bg-neutral-800 text-gray-400"
+              : "hover:bg-gray-100 text-gray-500"
+          )}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
       </div>
-    </div>
+    </button>
   );
 } 

@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { PublishFormDialog } from "@/components/forms/dialogs/PublishFormDialog"
 
 export default function NewFormPage() {
   const router = useRouter()
@@ -50,6 +51,7 @@ export default function NewFormPage() {
   const [formDescription, setFormDescription] = useState("")
   const [showTitleError, setShowTitleError] = useState(false)
   const [validation, setValidation] = useState<{ isValid: boolean; error?: string } | null>(null)
+  const [showPublishDialog, setShowPublishDialog] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -67,16 +69,22 @@ export default function NewFormPage() {
     setTheme(isDark ? 'dark' : 'light')
   }
 
-  const handlePublish = async () => {
+  const handlePublish = () => {
+    setShowPublishDialog(true)
+  }
+
+  const handlePublished = async (slug: string) => {
     try {
       const formData = prepareForPublish()
-      const url = await publishForm(formData)
+      await publishForm(formData)
       
       setPublished(true, {
         formId: formData.id,
-        slug: url,
+        slug: slug,
         isCustomizable: true
       })
+      toast.success('Formulario publicado exitosamente')
+      router.push(`/forms/${slug}`)
     } catch (err) {
       console.error('Error publishing form:', err)
     }
@@ -373,6 +381,14 @@ export default function NewFormPage() {
           </div>
         </div>
       </motion.div>
+
+      <PublishFormDialog
+        open={showPublishDialog}
+        onOpenChange={setShowPublishDialog}
+        formTitle={formTitle}
+        formDescription={formDescription}
+        onPublished={handlePublished}
+      />
     </AnimatePresence>
   )
 } 

@@ -10,14 +10,15 @@ import { toast } from 'react-hot-toast';
 interface PublicFormContentProps {
   fields: FormStepField[];
   currentStep: number;
-  onStepChange: (stepId: string, data: Record<string, any>) => void;
+  onStepChange: (stepId: string, data: any) => void;
   onNext: () => void;
   onPrev: () => void;
   onSubmit: () => Promise<void>;
   isSubmitting: boolean;
-  error: string | null;
+  error: Error | null;
   theme: 'light' | 'dark';
   viewType: "mobile" | "desktop";
+  slug: string;
 }
 
 export function PublicFormContent({
@@ -30,7 +31,8 @@ export function PublicFormContent({
   isSubmitting,
   error,
   theme,
-  viewType
+  viewType,
+  slug
 }: PublicFormContentProps) {
   const currentField = fields[currentStep];
   const nextField = fields[currentStep + 1];
@@ -156,7 +158,7 @@ export function PublicFormContent({
             className="space-y-6"
           >
             {renderField(currentField)}
-            {error && <FormError message={error} theme={theme} />}
+            {error && <FormError message={error.message} theme={theme} />}
           </motion.div>
         </AnimatePresence>
       </div>

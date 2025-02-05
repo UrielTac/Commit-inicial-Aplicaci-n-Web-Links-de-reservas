@@ -10,6 +10,8 @@ interface PublicFormLayoutProps {
   onNext: () => void;
   onPrev: () => void;
   onStepChange: (stepId: string, data: any) => void;
+  formData: Record<string, any>;
+  slug: string;
 }
 
 export function PublicFormLayout({
@@ -17,7 +19,9 @@ export function PublicFormLayout({
   currentStep,
   onNext,
   onPrev,
-  onStepChange
+  onStepChange,
+  formData,
+  slug
 }: PublicFormLayoutProps) {
   const [viewType, setViewType] = useState<"mobile" | "desktop">("desktop");
   // Ordenar los campos al inicializar
@@ -73,6 +77,7 @@ export function PublicFormLayout({
         error={null}
         theme={form.settings.theme || 'light'}
         viewType={viewType}
+        slug={slug}
       />
     </div>
   );

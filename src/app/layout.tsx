@@ -8,7 +8,8 @@ import { BranchProvider } from '@/contexts/BranchContext'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
 import { FormProvider } from "@/contexts/FormContext"
 import { PayPalProvider } from "@/components/providers/paypal-provider"
-import { StripeProvider } from "@/components/providers/stripe-provider"
+import { StripeProvider } from "@/providers/StripeProvider"
+import { AuthProvider } from "@/providers/AuthProvider"
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -26,20 +27,21 @@ export default function RootLayout({
     <html lang="es">
       <body className={inter.className}>
         <Providers>
-          <FormProvider>
-            <OrganizationProvider>
-              <BranchProvider>
-                <DateProvider>
-                  <PayPalProvider>
-                    <StripeProvider>
+          <AuthProvider>
+            <FormProvider>
+              <OrganizationProvider>
+                <BranchProvider>
+                  <DateProvider>
+                    <PayPalProvider>
+                      {/* El StripeProvider se moverá al componente del formulario público */}
                       {children}
-                    </StripeProvider>
-                  </PayPalProvider>
-                  <Toaster />
-                </DateProvider>
-              </BranchProvider>
-            </OrganizationProvider>
-          </FormProvider>
+                      <Toaster />
+                    </PayPalProvider>
+                  </DateProvider>
+                </BranchProvider>
+              </OrganizationProvider>
+            </FormProvider>
+          </AuthProvider>
         </Providers>
       </body>
     </html>
